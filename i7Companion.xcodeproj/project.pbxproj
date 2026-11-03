@@ -32,6 +32,7 @@
 		B0A271D1AF731881C6963A15 /* CalendarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4AB5901CBFC5E8BF11DA42 /* CalendarLayout.swift */; };
 		B46A5878650668F6A6014524 /* Modes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD77A6B5DB07F896D98E441 /* Modes.swift */; };
 		BCC85E175689472E81734403 /* WireConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1919D096F7E96190C29F21CA /* WireConnection.swift */; };
+		CB4FB150848FB323379D7E2D /* CalendarSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21148F54FD936350370FDE7 /* CalendarSetup.swift */; };
 		CC9D32A6A6EB847A48D39543 /* UpdatePush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18995010EDE1D0078130758 /* UpdatePush.swift */; };
 		CE1D877C8D65CB723E1F5F77 /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D7F6C0F14C9F827DA453FA2 /* AppController.swift */; };
 		D30AB942E918AADCFECFB7F1 /* WaitingShader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98572BD1F16ACD26342E4439 /* WaitingShader.swift */; };
@@ -86,6 +87,7 @@
 		E38CA57E86ACBB6381EAEAE8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E62A08A593560D5BD160C6A6 /* Modes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modes.swift; sourceTree = "<group>"; };
 		E9F110F649B690B41D714DEF /* RootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewController.swift; sourceTree = "<group>"; };
+		F21148F54FD936350370FDE7 /* CalendarSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSetup.swift; sourceTree = "<group>"; };
 		FC50E3A72FDC8A80F94A4238 /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -96,6 +98,7 @@
 				5D7F6C0F14C9F827DA453FA2 /* AppController.swift */,
 				CBFDF6F3415E8F30E940BE8D /* Assets.xcassets */,
 				FC50E3A72FDC8A80F94A4238 /* Bridging-Header.h */,
+				F21148F54FD936350370FDE7 /* CalendarSetup.swift */,
 				6B83274356650CF0623133C4 /* DashboardMode.swift */,
 				1A7319F1FEB390BF16BF21D4 /* Info.plist */,
 				BBCF9D7759B633C012C8B69A /* main.swift */,
@@ -296,6 +299,7 @@
 				CE1D877C8D65CB723E1F5F77 /* AppController.swift in Sources */,
 				D524AD42A2D59A46C99E44A3 /* ArtworkPalette.swift in Sources */,
 				183633CB1E8C48ED55C9D09C /* CalendarLayout.swift in Sources */,
+				CB4FB150848FB323379D7E2D /* CalendarSetup.swift in Sources */,
 				FDA2EFC0A1CD94059724040A /* Dashboard.swift in Sources */,
 				1788ABAFD59F7071C2CF34E9 /* DashboardMode.swift in Sources */,
 				E960A2BA2396A4A261F88C98 /* H264Encoder.swift in Sources */,
