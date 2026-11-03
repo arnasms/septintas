@@ -34,8 +34,8 @@ let soon = Date().addingTimeInterval(2 * 3600)
 let later = Date().addingTimeInterval(4 * 24 * 3600)
 let navy = CalendarColor(red: 0.024, green: 0.098, blue: 0.31)
 let red = CalendarColor(red: 1, green: 0.27, blue: 0.23)
-let lecture = CalendarEvent(title: "103 - Academic Writing and Research Skills", start: tomorrow(12, 40), end: tomorrow(14, 10), color: navy)
-let lesson = CalendarEvent(title: "Pamoka", start: tomorrow(13, 0), end: tomorrow(14, 0), color: red)
+let lecture = CalendarEvent(title: "Cloud City Design Workshop", start: tomorrow(12, 40), end: tomorrow(14, 10), color: navy)
+let lesson = CalendarEvent(title: "Moon Garden Planning", start: tomorrow(13, 0), end: tomorrow(14, 0), color: red)
 
 render(DashboardUpdate(
     limits: [
