@@ -32,6 +32,7 @@ This project has only been tested on my personal iPhone 7 and Mac with Sequoia a
 Very appreciated PRs would be:
 - making the layout work on other iPhones
 - making the Mac companion app more independent from OBS and CodexBar
+
 I'm happy with the functionality as is, but widgets are modular, so you can add your own.
 
 ### Donations
