@@ -10,6 +10,7 @@ final class WireConnection {
     private let lock = NSLock()
     private var pending = 0
     private var closed = false
+    private var started = false
 
     /// Above this many queued messages, droppable video is skipped instead of building up delay.
     private let maxPendingForDroppable = 4
@@ -21,6 +22,11 @@ final class WireConnection {
     }
 
     func start() {
+        guard lock.withLock({
+            if started { return false }
+            started = true
+            return true
+        }) else { return }
         let thread = Thread { [self] in readLoop() }
         thread.qualityOfService = .userInteractive
         thread.start()
@@ -62,8 +68,10 @@ final class WireConnection {
                 shutdown(fd, SHUT_RDWR)
             }
         }
+        start()
     }
 
+    /// Also drains a connection rejected before its owner started it.
     private func readLoop() {
         var header = [UInt8](repeating: 0, count: Wire.headerSize)
         while readAll(&header, count: Wire.headerSize) {
@@ -75,7 +83,10 @@ final class WireConnection {
             }
             if !ok { break }
             if let type = MessageType(rawValue: header[0]) {
-                onMessage?(type, payload)
+                DispatchQueue.main.async { [self] in
+                    guard !lock.withLock({ closed }) else { return }
+                    onMessage?(type, payload)
+                }
             }
         }
         close()

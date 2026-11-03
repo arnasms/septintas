@@ -27,6 +27,10 @@ enum UsbMux {
             close(fd)
             return nil
         }
+        // Bound a stalled usbmux handshake so retries can recover after wake.
+        var timeout = timeval(tv_sec: 3, tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         return fd
     }
 
@@ -89,6 +93,8 @@ enum UsbMux {
             close(fd)
             return nil
         }
+        var timeout = timeval()
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         return fd
     }
 }
@@ -103,15 +109,38 @@ final class PhoneLink {
     private let lock = NSLock()
     private var usbDevices = Set<Int>()
     private var connected = false
+    private var suspended = false
+    private var generation = 0
+    private var active: WireConnection?
+    private var activeDevice: Int?
+
+    /// Main queue only. Invalidate both in-flight attempts and the current session.
+    func setSuspended(_ value: Bool) {
+        lock.withLock { suspended = value; generation += 1 }
+        disconnect()
+    }
+
+    private func disconnect() {
+        let old = active
+        active = nil
+        activeDevice = nil
+        lock.withLock { connected = false }
+        old?.close()
+        if old != nil { onDisconnected?() }
+    }
 
     func start() {
-        Thread { [self] in watchLoop() }.start()
+        if ProcessInfo.processInfo.environment["I7_DIRECT_PORT"] == nil {
+            Thread { [self] in watchLoop() }.start()
+        }
         Thread { [self] in connectLoop() }.start()
     }
 
     private func watchLoop() {
         while true {
             if let fd = UsbMux.openSocket() {
+                var timeout = timeval()
+                setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
                 if UsbMux.send(fd, ["MessageType": "Listen"]) {
                     while let message = UsbMux.receive(fd) {
                         handle(message)
@@ -119,7 +148,8 @@ final class PhoneLink {
                 }
                 close(fd)
             }
-            lock.withLock { usbDevices.removeAll() }
+            lock.withLock { usbDevices.removeAll(); generation += 1 }
+            DispatchQueue.main.async { [self] in disconnect() }
             Thread.sleep(forTimeInterval: 2)
         }
     }
@@ -132,7 +162,10 @@ final class PhoneLink {
            properties["ConnectionType"] as? String == "USB" {
             lock.withLock { _ = usbDevices.insert(id) }
         } else if type == "Detached", let id = message["DeviceID"] as? Int {
-            lock.withLock { _ = usbDevices.remove(id) }
+            lock.withLock { _ = usbDevices.remove(id); generation += 1 }
+            DispatchQueue.main.async { [self] in
+                if activeDevice == id { disconnect() }
+            }
         }
     }
 
@@ -157,13 +190,13 @@ final class PhoneLink {
     private func connectLoop() {
         let directPort = ProcessInfo.processInfo.environment["I7_DIRECT_PORT"].flatMap { UInt16($0) }
         while true {
-            let (busy, devices) = lock.withLock { (connected, usbDevices) }
+            let (busy, devices, token) = lock.withLock { (connected || suspended, usbDevices, generation) }
             if !busy, let directPort {
-                if let fd = connectDirect(port: directPort) { attach(fd) }
+                if let fd = connectDirect(port: directPort) { attach(fd, device: nil, generation: token) }
             } else if !busy {
                 for device in devices {
                     if let fd = UsbMux.connect(deviceID: device, port: Wire.devicePort) {
-                        attach(fd)
+                        attach(fd, device: device, generation: token)
                         break
                     }
                 }
@@ -172,14 +205,21 @@ final class PhoneLink {
         }
     }
 
-    private func attach(_ fd: Int32) {
-        lock.withLock { connected = true }
-        let connection = WireConnection(fd: fd)
-        connection.onClose = { [weak self] in
-            guard let self else { return }
-            self.lock.withLock { self.connected = false }
-            self.onDisconnected?()
+    private func attach(_ fd: Int32, device: Int?, generation token: Int) {
+        DispatchQueue.main.async { [self] in
+            let connection = WireConnection(fd: fd)
+            guard lock.withLock({ !suspended && !connected && generation == token }) else {
+                connection.close()
+                return
+            }
+            lock.withLock { connected = true }
+            active = connection
+            activeDevice = device
+            connection.onClose = { [weak self, weak connection] in
+                guard let self, self.active === connection else { return }
+                self.disconnect()
+            }
+            onConnected?(connection)
         }
-        DispatchQueue.main.async { self.onConnected?(connection) }
     }
 }

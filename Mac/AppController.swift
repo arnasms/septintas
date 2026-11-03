@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import EventKit
 
 /// The menu bar item, plus the decisions about what should be running right now.
 final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -7,10 +8,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let link = PhoneLink()
     private let camera = VirtualCamera()
     private let decoder = CameraDecoder()
+    private let calendarPermissionStore = EKEventStore()
+    private var calendarRequestPending = false
 
     private var connection: WireConnection?
     private var mode: MacMode?
     private let modeLock = NSLock()
+
+    private var backCamera: Bool {
+        get { UserDefaults.standard.bool(forKey: "backCamera") }
+        set { UserDefaults.standard.set(newValue, forKey: "backCamera") }
+    }
+    private func sendCameraPosition() {
+        connection?.send(.setCameraPosition, Data([backCamera ? 1 : 0]))
+    }
 
     private var cameraOn = false
     /// You turned the webcam off while an app still has it open, so don't turn it straight back on.
@@ -85,10 +96,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             self?.asleep = true
             self?.sendSleepPrevention()
-            self?.setCamera(false)
+            self?.link.setSuspended(true)
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.asleep = false
+            self?.link.setSuspended(false)
             self?.sendSleepPrevention()
             self?.checkCameraDemand()
         }
@@ -102,9 +114,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: Connection
 
     private func attach(_ newConnection: WireConnection) {
+        guard !asleep else { newConnection.close(); return }
         connection = newConnection
-        newConnection.onMessage = { [weak self] type, payload in self?.received(type, payload) }
+        newConnection.onMessage = { [weak self, weak newConnection] type, payload in
+            guard let self, self.connection === newConnection else { return }
+            self.received(type, payload)
+        }
         newConnection.start()
+        sendCameraPosition()
         sendSleepPrevention()
         activate(selectedMode)
         if ProcessInfo.processInfo.environment["I7_TEST_CAMERA"] != nil {
@@ -131,7 +148,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let current = mode
             modeLock.unlock()
             current?.receive(payload)
-        case .hello, .setMode, .setCamera, .cameraKeyframeRequest, .setSleepPrevention:
+        case .hello, .setMode, .setCamera, .cameraKeyframeRequest, .setSleepPrevention, .setCameraPosition:
             break
         }
     }
@@ -236,11 +253,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             menu.addItem(item)
         }
+        if !FileManager.default.isExecutableFile(atPath: "/Applications/CodexBar.app/Contents/Helpers/CodexBarCLI") {
+            let item = NSMenuItem(title: "Usage needs CodexBar — Setup…", action: #selector(showUsageSetup), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+        if let title = CalendarSetup(authorization: EKEventStore.authorizationStatus(for: .event)).menuTitle {
+            let item = NSMenuItem(title: title, action: #selector(showCalendarSetup), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
 
         if !camera.isAvailable {
-            let item = NSMenuItem(title: "Webcam needs OBS's virtual camera", action: nil, keyEquivalent: "")
-            item.isEnabled = false
+            let item = NSMenuItem(title: "Webcam needs OBS — Setup…", action: #selector(showWebcamSetup), keyEquivalent: "")
+            item.target = self
             menu.addItem(item)
         } else {
             let webcam = NSMenuItem(title: "Webcam", action: #selector(toggleCamera), keyEquivalent: "")
@@ -248,6 +275,32 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             webcam.state = cameraOn ? .on : .off
             webcam.isEnabled = connection != nil
             menu.addItem(webcam)
+            let lens = NSMenuItem(title: "Webcam Camera", action: nil, keyEquivalent: "")
+            let choices = NSMenu()
+            for (index, title) in ["Front", "Back"].enumerated() {
+                let choice = NSMenuItem(title: title, action: #selector(pickCameraPosition(_:)), keyEquivalent: "")
+                choice.target = self
+                choice.tag = index
+                choice.state = (index == 1) == backCamera ? .on : .off
+                choices.addItem(choice)
+            }
+            lens.submenu = choices
+            menu.addItem(lens)
+        }
+        // The setup-checks branch supplies an actionable setup dialog instead.
+        // Add inline requirements only to the passive placeholder used without that branch.
+        if let item = menu.items.last, item.title == "Webcam needs OBS's virtual camera", item.action == nil {
+            let requirements = NSMenu()
+            for text in ["Install OBS and start its Virtual Camera once.",
+                         "Allow the camera extension in System Settings.",
+                         "OBS can then stay closed.",
+                         "Display and dashboard work without OBS."] {
+                let requirement = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+                requirement.isEnabled = false
+                requirements.addItem(requirement)
+            }
+            item.submenu = requirements
+            item.isEnabled = true
         }
         menu.addItem(.separator())
 
@@ -273,7 +326,63 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func askScreenRecording() {
-        CGRequestScreenCaptureAccess()
+        setupHelp("Allow Screen Recording", "Screen sharing needs Screen Recording access. In System Settings → Privacy & Security → Screen Recording (or Screen & System Audio Recording), enable septintas. Quit and reopen septintas if macOS asks, then reconnect the iPhone.")
+        if !CGRequestScreenCaptureAccess() {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        }
+    }
+
+    private func setupHelp(_ title: String, _ message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    @objc private func showUsageSetup() {
+        setupHelp("Usage numbers need CodexBar", "Install CodexBar at /Applications/CodexBar.app with its bundled Contents/Helpers/CodexBarCLI executable, then open CodexBar and configure your providers. If CodexBar is already installed, update or reinstall it to restore the CLI. CodexBar can stay closed afterward. Reopen this menu to check again. The other dashboard widgets work without it.")
+    }
+
+    @objc private func showWebcamSetup() {
+        setupHelp("Set up the webcam", "Install OBS Studio 30 or later in Applications and open it. Click Start Virtual Camera in Controls and follow the extension approval prompt. On macOS 14, check System Settings → Privacy & Security → Security; on newer macOS, check General → Login Items & Extensions for OBS’s camera or media extension. Once installed, stop the virtual camera and quit OBS so septintas can supply its frames. Reopen this menu to check again, then select OBS Virtual Camera in your video app. The display and dashboard work without OBS.")
+    }
+
+    @objc private func showCalendarSetup() {
+        let setup = CalendarSetup(authorization: EKEventStore.authorizationStatus(for: .event))
+        switch setup {
+        case .request, .upgrade:
+            guard !calendarRequestPending else { return }
+            calendarRequestPending = true
+            // Retain the store until EventKit finishes, even if the controller goes away.
+            let store = calendarPermissionStore
+            store.requestFullAccessToEvents { [weak self, store] granted, error in
+                DispatchQueue.main.async {
+                    _ = store
+                    guard let self else { return }
+                    self.calendarRequestPending = false
+                    if let error {
+                        self.setupHelp("Calendar access failed", error.localizedDescription)
+                    } else if granted {
+                        self.setupHelp("Calendar access allowed", "Reconnect the iPhone to refresh the calendar. Reopen this menu to check setup again.")
+                    } else {
+                        self.setupHelp("Calendar needs Full Access", "Open System Settings → Privacy & Security → Calendars and give septintas Full Access. Add Events Only cannot read upcoming events. After changing access, reconnect the iPhone to refresh the calendar, then reopen this menu to check again.")
+                    }
+                }
+            }
+        case .settings:
+            setupHelp("Calendar needs Full Access", "Open System Settings → Privacy & Security → Calendars and give septintas Full Access. Add Events Only cannot read upcoming events. After changing access, reconnect the iPhone to refresh the calendar, then reopen this menu to check again.")
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+        case .restricted:
+            setupHelp("Calendar access is restricted", "macOS policy prevents Calendar access. Ask the administrator managing this Mac to allow Calendar access for septintas. The app cannot request permission while this restriction applies.")
+        case .ready:
+            break
+        }
+    }
+
+    @objc private func pickCameraPosition(_ sender: NSMenuItem) {
+        backCamera = sender.tag == 1
+        sendCameraPosition()
     }
 
     @objc private func toggleCamera() {

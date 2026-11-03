@@ -4,11 +4,17 @@ import Foundation
 /// Each message carries only what changed, and the phone keeps the rest. The phone formats all
 /// dates itself. Its clock runs without the Mac, and the time tile needs nothing from here.
 struct DashboardUpdate: Codable {
+    /// nil leaves usage unchanged; a non-nil array replaces the entire snapshot (including []).
     var limits: [ProviderLimits]?
+    var usageState: UsageState?
     var track: TrackInfo?
     /// New album art, sent only when the track's art changes.
     var art: Data?
     var calendar: CalendarStatus?
+}
+
+enum UsageState: String, Codable {
+    case available, sourceMissing, unavailable
 }
 
 struct ProviderLimits: Codable {

@@ -45,6 +45,7 @@ final class RootViewController: UIViewController {
                 name: UIDevice.orientationDidChangeNotification, object: nil)
         }
 
+
         server.onConnection = { [weak self] connection in self?.attach(connection) }
         updater.start()
     }
@@ -88,18 +89,32 @@ final class RootViewController: UIViewController {
     }
 
     func appWillResign() {
+        // System overlays make us inactive without leaving the foreground. Keep the
+        // USB session and visible mode intact; backgrounding owns teardown.
+        waiting.setAppActive(false)
+    }
+
+    func appEnteredBackground() {
         waiting.setAppActive(false)
         server.stop()
-        connection?.close()
+        let old = connection
+        connection = nil
+        old?.close()
+        camera.stop()
+        backToWaiting()
     }
 
     private func attach(_ newConnection: WireConnection) {
         finishWelcome()
         connection?.close()
+        camera.stop()
+        if connection != nil { backToWaiting() }
         connection = newConnection
+        camera.stop()
 
-        newConnection.onMessage = { [weak self] type, payload in
-            self?.received(type, payload)
+        newConnection.onMessage = { [weak self, weak newConnection] type, payload in
+            guard let self, self.connection === newConnection else { return }
+            self.received(type, payload)
         }
         newConnection.onClose = { [weak self, weak newConnection] in
             guard let self, self.connection === newConnection else { return }
@@ -107,11 +122,8 @@ final class RootViewController: UIViewController {
             self.camera.stop()
             self.backToWaiting()
         }
-        camera.onPacket = { [weak self, weak newConnection] packet in
-            guard let newConnection else { return }
-            if !newConnection.send(.cameraVideo, packet.encoded(), droppable: !packet.isKeyframe) {
-                self?.camera.forceKeyframe()
-            }
+        camera.onPacket = { [weak newConnection] packet in
+            newConnection?.send(.cameraVideo, packet.encoded(), droppable: !packet.isKeyframe) ?? false
         }
         newConnection.start()
         newConnection.send(.hello, Data([Wire.protocolVersion]))
@@ -230,22 +242,26 @@ final class RootViewController: UIViewController {
         old.view.removeFromSuperview()
     }
 
-    /// Runs on the connection's read thread, so video goes straight to the mode without passing through the main thread.
+    /// Wire callbacks are serialized with lifecycle changes on the main queue.
     private func received(_ type: MessageType, _ payload: Data) {
         switch type {
         case .setMode:
             guard let raw = payload.first, let id = ModeID(rawValue: raw) else { return }
-            DispatchQueue.main.async { self.setMode(id) }
+            setMode(id)
         case .setSleepPrevention:
             guard payload.count == 1, let value = payload.first, value <= 1 else { return }
-            DispatchQueue.main.async {
+            do {
                 let enabled = value == 1
                 UserDefaults.standard.set(enabled, forKey: "sleepPrevention")
                 self.updateSleepPrevention()
             }
+        case .setCameraPosition:
+            guard payload.count == 1, let value = payload.first, value <= 1 else { return }
+            camera.selectCamera(back: value == 1)
         case .setCamera:
-            let on = payload.first == 1
-            DispatchQueue.main.async {
+            guard payload.count == 1, let value = payload.first, value <= 1 else { return }
+            let on = value == 1
+            do {
                 if on {
                     self.camera.start(orientation: self.interfaceOrientation())
                 } else {
@@ -340,6 +356,10 @@ final class RootViewController: UIViewController {
             guard let self else { return }
             self.camera.setOrientation(self.interfaceOrientation())
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
     }
 
     private func interfaceOrientation() -> UIInterfaceOrientation {
