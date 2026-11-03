@@ -2,7 +2,7 @@ name: Build and check
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 permissions:
   contents: read
 jobs:
