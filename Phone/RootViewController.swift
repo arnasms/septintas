@@ -9,7 +9,7 @@ final class RootViewController: UIViewController {
     private var mode: PhoneMode?
     private let waiting = WaitingView()
     private var isWaiting = true
-    private var welcomesUser = FirstRunWelcome.claim()
+    private var welcomesUser = true
 
     /// The previous mode, kept on screen until the new one has something to show.
     private var outgoing: PhoneMode?
