@@ -12,10 +12,9 @@ iOS only lets the foreground app use the camera, so running a webcam app like Ca
 
 ## What it does
 
-- **Second screen:** the iPhone becomes an extra display for the Mac. The display exists only while the mode is on, so windows return to your other screens when it stops.
+- **Extended Display:** the iPhone becomes an extended display for the Mac. The display exists only while the mode is on, so windows return to your other screens when it stops.
 - **Dashboard:** Claude and Codex usage limits and cost, what's playing, and your next calendar events.
-- **Webcam:** the front camera shows up on the Mac as "OBS Virtual Camera", for Zoom, Meet and the like. It runs underneath whichever mode is on screen.
-- **Always on:** the phone stays awake while connected, and other apps can switch that on or off.
+- **Webcam:** the front camera can be used on the Mac for Zoom, Meet and the like. It runs underneath whichever mode is on screen.
 
 ## Before you try it
 
@@ -26,13 +25,16 @@ This is a personal project. I use it with TrollStore on my iPhone 7 and my Mac, 
 - [OBS](https://obsproject.com) installed for the webcam. OBS itself can stay closed.
 - [CodexBar](https://github.com/steipete/CodexBar) installed for the dashboard's usage numbers. It doesn't need to be running.
 
-The second screen relies on macOS's private `CGVirtualDisplay` classes, and Now Playing uses a workaround, so a macOS update could break either one.
-
 ## Ways you can help out
 
-**Pull requests:** appreciated, especially ones that make this work on other iPhone models.
+### Pull requests
+This project has only been tested on my personal iPhone 7 and Mac with Sequoia and my specific machine setup (OBS + CodexBar). 
+Very appreciated PRs would be:
+- making the layout work on other iPhones
+- making the Mac companion app more independent from OBS and CodexBar
 
-**Donations:** welcome, toward a paid Apple developer certificate. It would let the webcam appear under its own name instead of "OBS Virtual Camera".
+### Donations
+Would go towards an Apple Developer Account and would let the project 1) not require workarounds with signing 2) have its own webcam profile independent of OBS 3) maybe even see the light of day on the App Store
 
 ## How it works
 
