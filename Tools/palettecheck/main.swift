@@ -10,10 +10,14 @@ precondition(ArtworkPalette.colors(from: [sample(120, 90, 170, 40), sample(125, 
 precondition(ArtworkPalette.colors(from: [sample(0, 0, 0, 100)]).first == .init(red: 0, green: 0, blue: 0))
 let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("fixtures.json")
 let rows = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [[String: Any]]
+precondition(!rows.isEmpty, "Fixtures must exercise palette selection")
 for row in rows {
     let bins = row["bins"] as! [[Double]]
     let colors = ArtworkPalette.colors(from: bins.map { sample($0[0], $0[1], $0[2], Int($0[3])) })
-    precondition((1...3).contains(colors.count))
+    let expected = (row["expected"] as! [[Double]]).map {
+        ArtworkPalette.RGB(red: $0[0], green: $0[1], blue: $0[2])
+    }
+    precondition(colors == expected, "Unexpected palette for \(row["artist"]!)")
     print("\(row["artist"]!): \(colors.count) color(s)")
 }
 print("Palette checks passed")

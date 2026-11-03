@@ -1,6 +1,9 @@
-These fixtures are hand-written RGB histograms, created for this project. They contain no sampled artwork or third-party content. Run from the repository root:
+These fixtures are hand-written RGB histograms, created for this project. They contain no sampled artwork or third-party content. Each includes the exact expected palette, covering two distinct colors, exclusion of a low-weight color, and a dominant monochrome color.
+
+With the Swift compiler installed, run from the repository root:
 
 ```sh
-swiftc Shared/ArtworkPalette.swift Tools/palettecheck/main.swift -o /tmp/palettecheck
-/tmp/palettecheck
+Tools/palettecheck/run.sh
 ```
+
+Or invoke the script by its absolute path from any working directory. It compiles with absolute source paths so fixture lookup remains independent of the working directory, and removes its temporary binary on exit. Only tracked source files and `fixtures.json` are needed; no `mockups` directory or downloaded artwork is used.
