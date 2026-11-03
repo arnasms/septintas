@@ -85,10 +85,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             self?.asleep = true
             self?.sendSleepPrevention()
-            self?.setCamera(false)
+            self?.link.setSuspended(true)
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.asleep = false
+            self?.link.setSuspended(false)
             self?.sendSleepPrevention()
             self?.checkCameraDemand()
         }
@@ -102,8 +103,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: Connection
 
     private func attach(_ newConnection: WireConnection) {
+        guard !asleep else { newConnection.close(); return }
         connection = newConnection
-        newConnection.onMessage = { [weak self] type, payload in self?.received(type, payload) }
+        newConnection.onMessage = { [weak self, weak newConnection] type, payload in
+            guard let self, self.connection === newConnection else { return }
+            self.received(type, payload)
+        }
         newConnection.start()
         sendSleepPrevention()
         activate(selectedMode)

@@ -57,7 +57,7 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
 
         guard let encoder = H264Encoder(width: panelWidth, height: panelHeight, fps: 60, bitrate: 12_000_000, lowLatency: true) else { return }
         encoder.onPacket = { [weak self, weak encoder] packet in
-            guard let self, let sent = self.send?(packet.encoded(), !packet.isKeyframe), !sent else { return }
+            guard self != nil, !send(packet.encoded(), !packet.isKeyframe) else { return }
             encoder?.forceNextKeyframe()
         }
         self.encoder = encoder
@@ -67,13 +67,14 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
 
     func stop() {
         stopped = true
+        captureGeneration += 1
         send = nil
         refreshTimer?.cancel()
         refreshTimer = nil
         let oldStream = stream
         stream = nil
         Task { try? await oldStream?.stopCapture() }
-        encoder = nil
+        queue.sync { encoder = nil; lastFrame = nil }
         // Releasing this removes the display, so windows on it return to your other screens.
         display = nil
         queue.async { [self] in lastFrame = nil }
@@ -115,6 +116,7 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
         Task { await startCapture(attempt: 0, generation: generation) }
     }
 
+    @MainActor
     private func startCapture(attempt: Int, generation: Int) async {
         guard !stopped, generation == captureGeneration, let displayID = display?.displayID else { return }
         if attempt == 0, !CGPreflightScreenCaptureAccess() {
@@ -123,6 +125,7 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
         do {
             // A brand new display takes a moment to show up here.
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            guard !stopped, generation == captureGeneration else { return }
             guard let target = content.displays.first(where: { $0.displayID == displayID }) else {
                 throw NSError(domain: "i7", code: 1)
             }
@@ -138,6 +141,10 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
             let newStream = SCStream(filter: filter, configuration: config, delegate: self)
             try newStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
             try await newStream.startCapture()
+            guard !stopped, generation == captureGeneration else {
+                try? await newStream.stopCapture()
+                return
+            }
             stream = newStream
         } catch {
             NSLog("i7: capture attempt %d failed: %@", attempt, error.localizedDescription)
@@ -148,13 +155,15 @@ final class SecondDisplayMacMode: NSObject, MacMode, SCStreamOutput, SCStreamDel
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         NSLog("i7: capture stopped: %@", error.localizedDescription)
-        guard !stopped else { return }
-        self.stream = nil
-        startCaptureLoop()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.stopped, self.stream === stream else { return }
+            self.stream = nil
+            self.startCaptureLoop()
+        }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen, sampleBuffer.isValid,
+        guard encoder != nil, type == .screen, sampleBuffer.isValid,
               let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
               let rawStatus = attachments.first?[.status] as? Int,
               SCFrameStatus(rawValue: rawStatus) == .complete,

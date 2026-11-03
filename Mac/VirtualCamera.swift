@@ -141,8 +141,9 @@ final class CameraDecoder {
     private var session: VTDecompressionSession?
     private var format: CMFormatDescription?
     private var lastParameterSets: [Data] = []
+    private var generation = 0
 
-    /// Called only from the connection's read thread.
+    /// Decode and reset are serialized on the main queue.
     func decode(_ packet: VideoPacket) {
         if packet.isKeyframe, packet.parameterSets != lastParameterSets {
             lastParameterSets = packet.parameterSets
@@ -152,17 +153,22 @@ final class CameraDecoder {
             onNeedsKeyframe?()
             return
         }
+        let token = generation
         let status = VTDecompressionSessionDecodeFrame(session, sampleBuffer: sample, flags: [], infoFlagsOut: nil) { [weak self] status, _, imageBuffer, _, _ in
-            guard status == noErr, let imageBuffer else {
-                self?.onNeedsKeyframe?()
-                return
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.generation == token else { return }
+                guard status == noErr, let imageBuffer else {
+                    self.onNeedsKeyframe?()
+                    return
+                }
+                self.onFrame?(imageBuffer)
             }
-            self?.onFrame?(imageBuffer)
         }
         if status != noErr { onNeedsKeyframe?() }
     }
 
     func reset() {
+        generation += 1
         if let session { VTDecompressionSessionInvalidate(session) }
         session = nil
         format = nil

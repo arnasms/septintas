@@ -18,12 +18,14 @@ final class CameraStreamer: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     private let bitrate = 8_000_000
 
     func start(orientation: UIInterfaceOrientation) {
+        let deliver = onPacket
         queue.async { [self] in
             if !configured { configure() }
             guard configured else { return }
             apply(orientation)
             encoder = H264Encoder(width: width, height: height, fps: fps, bitrate: bitrate, lowLatency: false)
-            encoder?.onPacket = { [weak self] packet in self?.onPacket?(packet) }
+            // Capture the session destination; an old encoder must never send to a new peer.
+            encoder?.onPacket = deliver
             if !session.isRunning { session.startRunning() }
         }
     }

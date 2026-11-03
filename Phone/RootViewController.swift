@@ -90,16 +90,23 @@ final class RootViewController: UIViewController {
     func appWillResign() {
         waiting.setAppActive(false)
         server.stop()
-        connection?.close()
+        let old = connection
+        connection = nil
+        old?.close()
+        camera.stop()
+        backToWaiting()
     }
 
     private func attach(_ newConnection: WireConnection) {
         finishWelcome()
         connection?.close()
+        camera.stop()
+        if connection != nil { backToWaiting() }
         connection = newConnection
 
-        newConnection.onMessage = { [weak self] type, payload in
-            self?.received(type, payload)
+        newConnection.onMessage = { [weak self, weak newConnection] type, payload in
+            guard let self, self.connection === newConnection else { return }
+            self.received(type, payload)
         }
         newConnection.onClose = { [weak self, weak newConnection] in
             guard let self, self.connection === newConnection else { return }
@@ -230,22 +237,22 @@ final class RootViewController: UIViewController {
         old.view.removeFromSuperview()
     }
 
-    /// Runs on the connection's read thread, so video goes straight to the mode without passing through the main thread.
+    /// Wire callbacks are serialized with lifecycle changes on the main queue.
     private func received(_ type: MessageType, _ payload: Data) {
         switch type {
         case .setMode:
             guard let raw = payload.first, let id = ModeID(rawValue: raw) else { return }
-            DispatchQueue.main.async { self.setMode(id) }
+            setMode(id)
         case .setSleepPrevention:
             guard payload.count == 1, let value = payload.first, value <= 1 else { return }
-            DispatchQueue.main.async {
+            do {
                 let enabled = value == 1
                 UserDefaults.standard.set(enabled, forKey: "sleepPrevention")
                 self.updateSleepPrevention()
             }
         case .setCamera:
             let on = payload.first == 1
-            DispatchQueue.main.async {
+            do {
                 if on {
                     self.camera.start(orientation: self.interfaceOrientation())
                 } else {
