@@ -28,11 +28,11 @@ This is a personal project. I use it with TrollStore on my iPhone 7 and my Mac, 
 
 The second screen relies on macOS's private `CGVirtualDisplay` classes, and Now Playing uses a workaround, so a macOS update could break either one.
 
-## Helping out
+## Ways you can help out
 
-Pull requests are appreciated, especially ones that make this work on other iPhone models.
+**Pull requests:** appreciated, especially ones that make this work on other iPhone models.
 
-Donations toward a paid Apple developer certificate are also welcome. It would let the webcam appear under its own name instead of "OBS Virtual Camera".
+**Donations:** welcome, toward a paid Apple developer certificate. It would let the webcam appear under its own name instead of "OBS Virtual Camera".
 
 ## How it works
 
