@@ -1,0 +1,5 @@
+[
+  {"artist":"Synthetic sunset", "bins":[[240,80,30,60],[30,40,130,40]]},
+  {"artist":"Synthetic forest", "bins":[[20,90,40,50],[90,150,50,30],[240,230,180,20]]},
+  {"artist":"Synthetic monochrome", "bins":[[0,0,0,80],[255,255,255,20]]}
+]

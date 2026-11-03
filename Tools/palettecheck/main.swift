@@ -8,7 +8,7 @@ precondition(ArtworkPalette.colors(from: [sample(255, 0, 0, 40), sample(0, 0, 25
 precondition(ArtworkPalette.colors(from: [sample(255, 0, 0, 45), sample(0, 0, 255, 40), sample(0, 255, 0, 15)]).count == 2)
 precondition(ArtworkPalette.colors(from: [sample(120, 90, 170, 40), sample(125, 95, 175, 35), sample(0, 0, 0, 25)]).count == 2)
 precondition(ArtworkPalette.colors(from: [sample(0, 0, 0, 100)]).first == .init(red: 0, green: 0, blue: 0))
-let url = URL(fileURLWithPath: "mockups/music-palette/artworks.json")
+let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("fixtures.json")
 let rows = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [[String: Any]]
 for row in rows {
     let bins = row["bins"] as! [[Double]]
