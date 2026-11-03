@@ -1,0 +1,27 @@
+name: Build and check
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate projects
+        run: xcodegen generate
+      - name: Build Mac app without signing
+        run: xcodebuild -project i7Companion.xcodeproj -scheme i7Mac -configuration Release -derivedDataPath build/ci-mac CODE_SIGNING_ALLOWED=NO build
+      - name: Build Now Playing helper
+        run: clang -dynamiclib -fobjc-arc -arch arm64 -arch x86_64 -framework Foundation Helpers/NowPlaying/now-playing.m -o build/now-playing.dylib
+      - name: Build iPhone app without signing
+        run: xcodebuild -project i7Companion.xcodeproj -scheme i7Phone -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ci-phone CODE_SIGNING_ALLOWED=NO build
+      - name: Run phone-independent checks
+        run: ./scripts/check.sh
