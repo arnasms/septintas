@@ -9,6 +9,7 @@ final class RootViewController: UIViewController {
     private var mode: PhoneMode?
     private let waiting = WaitingView()
     private var isWaiting = true
+    private var welcomesUser = FirstRunWelcome.claim()
 
     /// The previous mode, kept on screen until the new one has something to show.
     private var outgoing: PhoneMode?
@@ -26,7 +27,9 @@ final class RootViewController: UIViewController {
 
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .landscape }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        welcomesUser ? [.portrait, .landscape] : .landscape
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -35,9 +38,40 @@ final class RootViewController: UIViewController {
         waiting.frame = view.bounds
         waiting.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(waiting)
+        waiting.setWelcome(welcomesUser)
+        if welcomesUser {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            NotificationCenter.default.addObserver(self, selector: #selector(welcomeOrientationChanged),
+                name: UIDevice.orientationDidChangeNotification, object: nil)
+        }
 
         server.onConnection = { [weak self] connection in self?.attach(connection) }
         updater.start()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        checkWelcomeOrientation()
+    }
+
+    @objc private func welcomeOrientationChanged() {
+        if UIDevice.current.orientation.isLandscape { finishWelcome() }
+    }
+
+    private func checkWelcomeOrientation() {
+        if UIDevice.current.orientation.isLandscape || view.window?.windowScene?.interfaceOrientation.isLandscape == true {
+            finishWelcome()
+        }
+    }
+
+    private func finishWelcome() {
+        guard welcomesUser else { return }
+        welcomesUser = false
+        NotificationCenter.default.removeObserver(self, name: UIDevice.orientationDidChangeNotification, object: nil)
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        waiting.setWelcome(false)
+        // Reapply the existing landscape-only policy before any connected mode appears.
+        UIViewController.attemptRotationToDeviceOrientation()
     }
 
     private func updateSleepPrevention() {
@@ -49,6 +83,7 @@ final class RootViewController: UIViewController {
     func appBecameActive() {
         updateSleepPrevention()
         waiting.setAppActive(true)
+        checkWelcomeOrientation()
         server.start()
     }
 
@@ -59,6 +94,7 @@ final class RootViewController: UIViewController {
     }
 
     private func attach(_ newConnection: WireConnection) {
+        finishWelcome()
         connection?.close()
         connection = newConnection
 
@@ -299,6 +335,7 @@ final class RootViewController: UIViewController {
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
+        if size.width > size.height { finishWelcome() }
         coordinator.animate(alongsideTransition: nil) { [weak self] _ in
             guard let self else { return }
             self.camera.setOrientation(self.interfaceOrientation())
