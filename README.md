@@ -99,8 +99,36 @@ A mode is anything the phone's screen shows. The connection, webcam and always-o
 
 The compiler flags the two `switch` statements to fill in (`makePhoneMode`, `makeMacMode`), and the menu lists the new mode by itself. Data travels as `MessageType.modeData`; the format is up to the mode.
 
+## Adding a dashboard widget
+
+The dashboard has two equal slots, controlled on the phone. Swipe up for the next widget or down
+for the previous one. Both slots use the same circular list: Usage, Calendar and music, Clock.
+Each slot remembers its choice across app launches and reconnects. Duplicates are allowed; changing
+one slot never changes the other. Calendar and its expanding/collapsing music card stay together.
+Clock uses the phone's local time and date, without any Mac data.
+
+1. Add a self-contained `DashboardWidget` in `Phone/` (see `ClockDashboardWidget` in
+   `Phone/DashboardWidgets.swift`). Return its view, lay out within its bounds, implement
+   `setWidgetBackgroundAlpha` for the entrance/exit, and optionally implement `tick()` and
+   `apply(_:)`. The dashboard handles foreground colour transitions and the shared pixel shift.
+2. Register a factory in `dashboardWidgets` at the end of `Phone/DashboardMode.swift`. Give it a
+   unique, stable ID, an accessibility title and a position in the swipe order. Factories must create
+   independent instances because both slots can show the same widget. Keep registered IDs stable
+   to preserve saved choices; removed IDs fall back to the slot's default.
+3. If it needs new Mac data, add optional fields to `DashboardUpdate` in `Shared/Dashboard.swift`
+   and gather/send them from `Mac/DashboardMode.swift`. No Mac controls are needed.
+4. Add a `previewWidgets` case to `Tools/dashcheck/main.swift` and run
+   `./scripts/check-dashboard.sh`. Check actual swipes on the phone too.
+
+Widgets are retained and updated in each slot so adjacent pages are ready before a drag begins.
+Only the current page and its two neighbours are attached as visible pages. Mac sources continue
+running while Dashboard is active, including for widgets currently off screen. This keeps swipes
+instant and data fresh, and avoids restarting the usage CLI/calendar/helper on every swipe. The
+existing polling intervals and stop-on-mode-exit behaviour are unchanged.
+
 ## Testing without the phone
 
 `Tools/fakephone` stands in for the iPhone on the Mac. Start it, then open the Mac app with `I7_DIRECT_PORT=27077` to connect to it instead of USB. `I7_TEST_CAMERA=1` also starts the webcam straight away.
 
-`Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Live mode swaps still need checking on the phone.
+`Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Run `./scripts/check-dashboard.sh` to render the dashboard variants and check calendar capacity.
+Live mode swaps and widget swipes still need checking on the phone.
