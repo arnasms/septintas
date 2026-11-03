@@ -19,7 +19,7 @@ iOS only lets the foreground app use the camera, so running a webcam app like Ca
 
 ## Before you try it
 
-This is a personal project, built for one specific setup and tested only there:
+This is a personal project. I use it with TrollStore on my iPhone 7 and my Mac, and that's the only setup it has been tested on. You'll need:
 
 - An iPhone 7 on iOS 15.8.6 with [TrollStore](https://github.com/opa334/TrollStore) installed. The phone app isn't on the App Store and is fakesigned for TrollStore.
 - A Mac on macOS 14 or later, with Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
@@ -27,6 +27,12 @@ This is a personal project, built for one specific setup and tested only there:
 - [CodexBar](https://github.com/steipete/CodexBar) installed for the dashboard's usage numbers. It doesn't need to be running.
 
 The second screen relies on macOS's private `CGVirtualDisplay` classes, and Now Playing uses a workaround, so a macOS update could break either one.
+
+## Helping out
+
+Pull requests are appreciated, especially ones that make this work on other iPhone models.
+
+Donations toward a paid Apple developer certificate are also welcome. It would let the webcam appear under its own name instead of "OBS Virtual Camera".
 
 ## How it works
 
