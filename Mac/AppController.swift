@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import EventKit
 
 /// The menu bar item, plus the decisions about what should be running right now.
 final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -236,11 +237,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             menu.addItem(item)
         }
+        if !FileManager.default.isExecutableFile(atPath: "/Applications/CodexBar.app/Contents/Helpers/CodexBarCLI") {
+            let item = NSMenuItem(title: "Usage needs CodexBar — Setup…", action: #selector(showUsageSetup), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+        if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
+            let item = NSMenuItem(title: "Allow Calendar Access…", action: #selector(showCalendarSetup), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
 
         if !camera.isAvailable {
-            let item = NSMenuItem(title: "Webcam needs OBS's virtual camera", action: nil, keyEquivalent: "")
-            item.isEnabled = false
+            let item = NSMenuItem(title: "Webcam needs OBS — Setup…", action: #selector(showWebcamSetup), keyEquivalent: "")
+            item.target = self
             menu.addItem(item)
         } else {
             let webcam = NSMenuItem(title: "Webcam", action: #selector(toggleCamera), keyEquivalent: "")
@@ -273,7 +284,33 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func askScreenRecording() {
-        CGRequestScreenCaptureAccess()
+        if !CGRequestScreenCaptureAccess() {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        }
+    }
+
+    private func setupHelp(_ title: String, _ message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    @objc private func showUsageSetup() {
+        setupHelp("Usage numbers need CodexBar", "Install CodexBar in Applications and configure your providers there. CodexBar can stay closed. The other dashboard widgets work without it.")
+    }
+
+    @objc private func showWebcamSetup() {
+        setupHelp("Set up the webcam", "Install OBS in Applications, open it once and start its Virtual Camera to install the camera component. Allow the camera extension in System Settings if asked. OBS can then stay closed. The display and dashboard work without OBS.")
+    }
+
+    @objc private func showCalendarSetup() {
+        if EKEventStore.authorizationStatus(for: .event) == .notDetermined {
+            EKEventStore().requestFullAccessToEvents { _, _ in }
+        } else {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+        }
     }
 
     @objc private func toggleCamera() {
