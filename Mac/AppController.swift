@@ -15,6 +15,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mode: MacMode?
     private let modeLock = NSLock()
 
+    private var backCamera: Bool {
+        get { UserDefaults.standard.bool(forKey: "backCamera") }
+        set { UserDefaults.standard.set(newValue, forKey: "backCamera") }
+    }
+    private func sendCameraPosition() {
+        connection?.send(.setCameraPosition, Data([backCamera ? 1 : 0]))
+    }
+
     private var cameraOn = false
     /// You turned the webcam off while an app still has it open, so don't turn it straight back on.
     private var cameraHeldOff = false
@@ -113,6 +121,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.received(type, payload)
         }
         newConnection.start()
+        sendCameraPosition()
         sendSleepPrevention()
         activate(selectedMode)
         if ProcessInfo.processInfo.environment["I7_TEST_CAMERA"] != nil {
@@ -139,7 +148,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let current = mode
             modeLock.unlock()
             current?.receive(payload)
-        case .hello, .setMode, .setCamera, .cameraKeyframeRequest, .setSleepPrevention:
+        case .hello, .setMode, .setCamera, .cameraKeyframeRequest, .setSleepPrevention, .setCameraPosition:
             break
         }
     }
@@ -266,6 +275,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             webcam.state = cameraOn ? .on : .off
             webcam.isEnabled = connection != nil
             menu.addItem(webcam)
+            let lens = NSMenuItem(title: "Webcam Camera", action: nil, keyEquivalent: "")
+            let choices = NSMenu()
+            for (index, title) in ["Front", "Back"].enumerated() {
+                let choice = NSMenuItem(title: title, action: #selector(pickCameraPosition(_:)), keyEquivalent: "")
+                choice.target = self
+                choice.tag = index
+                choice.state = (index == 1) == backCamera ? .on : .off
+                choices.addItem(choice)
+            }
+            lens.submenu = choices
+            menu.addItem(lens)
         }
         // The setup-checks branch supplies an actionable setup dialog instead.
         // Add inline requirements only to the passive placeholder used without that branch.
@@ -358,6 +378,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .ready:
             break
         }
+    }
+
+    @objc private func pickCameraPosition(_ sender: NSMenuItem) {
+        backCamera = sender.tag == 1
+        sendCameraPosition()
     }
 
     @objc private func toggleCamera() {

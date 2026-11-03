@@ -5,64 +5,6 @@ final class RootViewController: UIViewController {
     private let server = PhoneServer()
     private let camera = CameraStreamer()
     private let updater = Updater()
-    private let webcamControls = UIStackView()
-    private let webcamStatus = UILabel()
-    private let cameraSelection = UISegmentedControl(items: ["Front", "Back"])
-    private var webcamRequested = false
-
-    private func setupWebcamControls() {
-        webcamControls.axis = .vertical
-        webcamControls.spacing = 4
-        webcamControls.backgroundColor = UIColor.black.withAlphaComponent(0.85)
-        webcamControls.layer.cornerRadius = 10
-        webcamControls.isLayoutMarginsRelativeArrangement = true
-        webcamControls.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10)
-        webcamStatus.font = .preferredFont(forTextStyle: .caption1)
-        webcamStatus.adjustsFontForContentSizeCategory = true
-        webcamStatus.numberOfLines = 0
-        webcamStatus.textColor = .white
-        cameraSelection.selectedSegmentIndex = 0
-        cameraSelection.accessibilityLabel = "Webcam camera"
-        cameraSelection.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
-        cameraSelection.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
-        cameraSelection.addTarget(self, action: #selector(selectWebcamCamera), for: .valueChanged)
-        webcamControls.addArrangedSubview(webcamStatus)
-        webcamControls.addArrangedSubview(cameraSelection)
-        webcamControls.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(webcamControls)
-        NSLayoutConstraint.activate([
-            webcamControls.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            webcamControls.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
-            webcamControls.widthAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.widthAnchor, constant: -16),
-            webcamControls.widthAnchor.constraint(lessThanOrEqualToConstant: 300),
-            cameraSelection.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
-        ])
-        webcamControls.isHidden = true
-        camera.onState = { [weak self] state in self?.showWebcamState(state) }
-        showWebcamState(.stopped)
-    }
-
-    @objc private func selectWebcamCamera() {
-        if webcamRequested { showWebcamState(.starting) }
-        camera.selectCamera(back: cameraSelection.selectedSegmentIndex == 1)
-    }
-
-    private func showWebcamState(_ state: CameraStreamer.State) {
-        guard connection != nil, UIApplication.shared.applicationState == .active else {
-            webcamControls.isHidden = true
-            return
-        }
-        webcamControls.isHidden = false
-        let visibleState: CameraStreamer.State = webcamRequested ? state : .stopped
-        switch visibleState {
-        case .stopped: webcamStatus.text = "Webcam off"
-        case .starting: webcamStatus.text = "Webcam starting…"
-        case .live: webcamStatus.text = webcamRequested ? "● Webcam live" : "Webcam off"
-        case .failed(let message): webcamStatus.text = "Webcam error: " + message
-        }
-        webcamStatus.accessibilityLabel = webcamStatus.text
-        view.bringSubviewToFront(webcamControls)
-    }
     private var connection: WireConnection?
     private var mode: PhoneMode?
     private let waiting = WaitingView()
@@ -103,7 +45,6 @@ final class RootViewController: UIViewController {
                 name: UIDevice.orientationDidChangeNotification, object: nil)
         }
 
-        setupWebcamControls()
 
         server.onConnection = { [weak self] connection in self?.attach(connection) }
         updater.start()
@@ -154,8 +95,6 @@ final class RootViewController: UIViewController {
     }
 
     func appEnteredBackground() {
-        webcamRequested = false
-        webcamControls.isHidden = true
         waiting.setAppActive(false)
         server.stop()
         let old = connection
@@ -171,9 +110,7 @@ final class RootViewController: UIViewController {
         camera.stop()
         if connection != nil { backToWaiting() }
         connection = newConnection
-        webcamRequested = false
         camera.stop()
-        showWebcamState(.stopped)
 
         newConnection.onMessage = { [weak self, weak newConnection] type, payload in
             guard let self, self.connection === newConnection else { return }
@@ -181,8 +118,6 @@ final class RootViewController: UIViewController {
         }
         newConnection.onClose = { [weak self, weak newConnection] in
             guard let self, self.connection === newConnection else { return }
-            self.webcamRequested = false
-            self.webcamControls.isHidden = true
             self.connection = nil
             self.camera.stop()
             self.backToWaiting()
@@ -201,7 +136,6 @@ final class RootViewController: UIViewController {
         queuedBytes = 0
         modeLock.unlock()
         // Preserve the exact visible frame if the cable goes away halfway through an effect.
-        webcamControls.isHidden = true
         let snapshot = view.snapshotView(afterScreenUpdates: false)
         modeBackdrop?.removeFromSuperview()
         modeBackdrop = nil
@@ -321,12 +255,13 @@ final class RootViewController: UIViewController {
                 UserDefaults.standard.set(enabled, forKey: "sleepPrevention")
                 self.updateSleepPrevention()
             }
+        case .setCameraPosition:
+            guard payload.count == 1, let value = payload.first, value <= 1 else { return }
+            camera.selectCamera(back: value == 1)
         case .setCamera:
             guard payload.count == 1, let value = payload.first, value <= 1 else { return }
             let on = value == 1
             do {
-                self.webcamRequested = on
-                self.showWebcamState(on ? .starting : .stopped)
                 if on {
                     self.camera.start(orientation: self.interfaceOrientation())
                 } else {
@@ -425,7 +360,6 @@ final class RootViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        view.bringSubviewToFront(webcamControls)
     }
 
     private func interfaceOrientation() -> UIInterfaceOrientation {
