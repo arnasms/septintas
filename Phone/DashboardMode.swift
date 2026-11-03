@@ -181,12 +181,18 @@ private final class DashboardView: UIView {
         super.layoutSubviews()
         content.bounds = bounds
         content.center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let width = (bounds.width - 24) / 2
+        let safe = bounds.inset(by: safeAreaInsets)
+        let width = max(0, (safe.width - 24) / 2)
         for (index, slot) in slots.enumerated() {
-            slot.frame = CGRect(x: 8 + CGFloat(index) * (width + 8), y: 8,
-                                width: width, height: bounds.height - 16)
+            slot.frame = CGRect(x: safe.minX + 8 + CGFloat(index) * (width + 8), y: safe.minY + 8,
+                                width: width, height: max(0, safe.height - 16))
         }
     }
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        setNeedsLayout()
+    }
+
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) {
         slots.forEach { $0.setWidgetBackgroundAlpha(alpha) }
     }
