@@ -42,6 +42,7 @@
 		E960A2BA2396A4A261F88C98 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05E193F458B5692C33719B19 /* H264Encoder.swift */; };
 		EC039CBEE699CA037D3AB90B /* UsbMux.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E3A9FDEC12FE567AEC4EF2 /* UsbMux.swift */; };
 		EF17918D27E665B868277DB1 /* Modes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62A08A593560D5BD160C6A6 /* Modes.swift */; };
+		F2601921808D521C4FC40BAD /* DashboardWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F0A0009402FD7014ABB508 /* DashboardWidgets.swift */; };
 		F32F95BF578744461D09050F /* PhoneServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C37ACF8501CE50F6D12ACA /* PhoneServer.swift */; };
 		F4A369DA39BC9D28F913FE2A /* ArtworkPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6003B2B2DFC41FC3C23BDC05 /* ArtworkPalette.swift */; };
 		FAB701051FDD4EF34AF566AE /* DashboardForeground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BFC4811470687A2AD2E5E36 /* DashboardForeground.swift */; };
@@ -59,6 +60,7 @@
 		2ABB14D4A75680813E3FD8D9 /* SecondDisplayMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondDisplayMessage.swift; sourceTree = "<group>"; };
 		2C441ECE8733E988C90A1F40 /* VideoPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPacket.swift; sourceTree = "<group>"; };
 		37AE63283D236515854B5431 /* i7Phone.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = i7Phone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		41F0A0009402FD7014ABB508 /* DashboardWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardWidgets.swift; sourceTree = "<group>"; };
 		44DCE942A37C9F3027A2E529 /* Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dashboard.swift; sourceTree = "<group>"; };
 		56484A140A319119520E380C /* CameraStreamer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraStreamer.swift; sourceTree = "<group>"; };
 		58A89D7EE805EE6A113FDE4F /* VirtualCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualCamera.swift; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 				56484A140A319119520E380C /* CameraStreamer.swift */,
 				1BFC4811470687A2AD2E5E36 /* DashboardForeground.swift */,
 				7022ECE22097271E2B6DADE8 /* DashboardMode.swift */,
+				41F0A0009402FD7014ABB508 /* DashboardWidgets.swift */,
 				E38CA57E86ACBB6381EAEAE8 /* Info.plist */,
 				E62A08A593560D5BD160C6A6 /* Modes.swift */,
 				A9C37ACF8501CE50F6D12ACA /* PhoneServer.swift */,
@@ -269,6 +272,7 @@
 				32BCDF80C17898E007489FF6 /* Dashboard.swift in Sources */,
 				FAB701051FDD4EF34AF566AE /* DashboardForeground.swift in Sources */,
 				2E4794009DDB91D9AE173D3F /* DashboardMode.swift in Sources */,
+				F2601921808D521C4FC40BAD /* DashboardWidgets.swift in Sources */,
 				08ABC92C1B4D558F71DA640E /* H264Encoder.swift in Sources */,
 				EF17918D27E665B868277DB1 /* Modes.swift in Sources */,
 				F32F95BF578744461D09050F /* PhoneServer.swift in Sources */,

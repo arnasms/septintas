@@ -67,3 +67,10 @@ and clips excess rows at its lower edge; its count is recomputed after the resiz
 
 Screen Size now offers Default and More Space, persists in a fixed preferences domain and flushes
 on selection. Removed Larger Text preferences migrate to Default. Standby is absent from the menu.
+
+Dashboard slots split the padded width equally. Each slot pages vertically through Usage,
+Calendar and music, and Clock, wrapping in both directions. UIKit paging follows the finger and
+settles to one neighbouring widget; short drags can return to the current widget. Each slot saves
+its own stable widget ID on the phone. Duplicate selections are independent. Calendar and music
+remain one widget, with their existing 0.65s fill/shrink animation inside either slot. The shared
+minute pixel shift and dashboard transition still wrap both slots as a single surface.
