@@ -1,0 +1,43 @@
+name: i7Companion
+options:
+  bundleIdPrefix: com.arnasmasalis.i7companion
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  i7Phone:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - Phone
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.arnasmasalis.i7companion.phone
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_NAME: septintas
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Phone/Info.plist
+        CODE_SIGN_STYLE: Automatic
+  i7Mac:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Mac
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.arnasmasalis.i7companion.mac
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_NAME: septintas
+        INFOPLIST_FILE: Mac/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: Mac/Bridging-Header.h
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
