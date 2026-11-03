@@ -58,6 +58,7 @@ final class DashboardPhoneMode: PhoneMode {
     private struct Saved: Codable {
         var savedAt: Date
         var limits: [ProviderLimits]?
+        var usageState: UsageState?
         var calendar: CalendarStatus?
     }
 
@@ -70,7 +71,10 @@ final class DashboardPhoneMode: PhoneMode {
 
     private func save(_ update: DashboardUpdate) {
         saved.savedAt = Date()
-        saved.limits = update.limits ?? saved.limits
+        if let limits = update.limits {
+            saved.limits = limits
+            saved.usageState = update.usageState
+        }
         saved.calendar = update.calendar ?? saved.calendar
         guard let url = savedURL, let data = try? JSONEncoder().encode(saved) else { return }
         try? data.write(to: url, options: .atomic)
@@ -86,7 +90,7 @@ final class DashboardPhoneMode: PhoneMode {
         }
         var calendar = value.calendar
         calendar?.events.removeAll { $0.end < Date() }
-        dashboard.apply(DashboardUpdate(limits: limits, calendar: calendar))
+        dashboard.apply(DashboardUpdate(limits: limits, usageState: value.usageState, calendar: calendar))
         hasLimits = limits != nil
     }
 }
@@ -241,22 +245,29 @@ private final class DashboardView: UIView {
 
 }
 
-private final class UsageWidget: UIView, DashboardWidget {
+final class UsageWidget: UIView, DashboardWidget {
     var view: UIView { self }
     private let tile = UsageTile()
     private let rule = UIView()
+    private let empty = UILabel()
     private let claude = ProviderSection(provider: .claude, color: claudeColor, logoColor: claudeColor)
     private let codex = ProviderSection(provider: .codex, color: codexColor, logoColor: .white)
     init() {
         super.init(frame: .zero)
         addSubview(tile)
         rule.backgroundColor = ruleColor
-        [claude, rule, codex].forEach { tile.addSubview($0) }
+        [claude, rule, codex, empty].forEach { tile.addSubview($0) }
+        empty.numberOfLines = 0
+        empty.textAlignment = .center
+        empty.font = .systemFont(ofSize: 15)
+        empty.textColor = secondaryText
+        showEmpty("Waiting for usage from Mac…")
     }
     required init?(coder: NSCoder) { fatalError() }
     override func layoutSubviews() {
         super.layoutSubviews()
         tile.frame = bounds
+        empty.frame = bounds.insetBy(dx: 24, dy: 24)
         let height = (bounds.height - 13) / 2
         let width = bounds.width - 32
         claude.frame = CGRect(x: 16, y: 6, width: width, height: height)
@@ -264,9 +275,27 @@ private final class UsageWidget: UIView, DashboardWidget {
         codex.frame = CGRect(x: 16, y: 7 + height, width: width, height: height)
     }
     func apply(_ update: DashboardUpdate) {
-        for limits in update.limits ?? [] {
+        guard let values = update.limits else { return }
+        if values.isEmpty {
+            showEmpty(update.usageState == .sourceMissing
+                ? "Usage needs CodexBar\nInstall it on your Mac and configure your providers."
+                : "Usage unavailable\nCheck your providers in CodexBar on your Mac.")
+            return
+        }
+        empty.isHidden = true
+        accessibilityValue = "Usage available"
+        claude.isHidden = !values.contains { $0.provider == .claude }
+        codex.isHidden = !values.contains { $0.provider == .codex }
+        rule.isHidden = claude.isHidden || codex.isHidden
+        for limits in values {
             (limits.provider == .claude ? claude : codex).apply(limits)
         }
+    }
+    private func showEmpty(_ text: String) {
+        empty.text = text
+        accessibilityValue = text
+        empty.isHidden = false
+        [claude, rule, codex].forEach { $0.isHidden = true }
     }
     func tick() { claude.tick(); codex.tick() }
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) { tile.surface.alpha = alpha }

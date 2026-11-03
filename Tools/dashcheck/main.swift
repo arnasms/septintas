@@ -92,3 +92,33 @@ precondition(restored.accessibilityLabel == "Calendar and music")
 slot.select("clock")
 precondition(restored.accessibilityLabel == "Calendar and music") // Independent instances.
 print("Widget settling passed: both directions, wrapping, cancelled drag, saved selection and independence")
+
+// Usage updates replace snapshots; unrelated messages must preserve the current state.
+let usage = UsageWidget()
+let sample = ProviderLimits(provider: .claude, sessionPercent: 47, weekPercent: 10,
+                            costToday: 1, costMonth: 2, outOfDate: false)
+usage.apply(DashboardUpdate(limits: [sample], usageState: .available))
+precondition(usage.accessibilityValue == "Usage available")
+let missing = DashboardUpdate(limits: [], usageState: .sourceMissing)
+let decodedMissing = try! JSONDecoder().decode(DashboardUpdate.self, from: JSONEncoder().encode(missing))
+precondition(decodedMissing.limits?.isEmpty == true)
+usage.apply(decodedMissing)
+precondition(usage.accessibilityValue?.contains("Install it on your Mac") == true)
+usage.apply(DashboardUpdate(track: TrackInfo(title: "", artist: "", duration: 0, elapsed: 0,
+                                          isPlaying: false, hasTrack: false)))
+precondition(usage.accessibilityValue?.contains("Install it on your Mac") == true)
+usage.apply(DashboardUpdate(limits: [])) // Older sender, no availability reason.
+precondition(usage.accessibilityValue?.contains("Usage unavailable") == true)
+usage.apply(DashboardUpdate(limits: [sample], usageState: .available))
+precondition(usage.accessibilityValue == "Usage available")
+mode.previewWidgets(["usage", "calendar"])
+render(missing, to: output + "-usage-missing.png")
+let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+    .appendingPathComponent("dashboard.json")
+let cached = try! JSONDecoder().decode(DashboardUpdate.self, from: Data(contentsOf: cacheURL))
+precondition(cached.limits?.isEmpty == true && cached.usageState == .sourceMissing)
+let restarted = DashboardPhoneMode()
+restarted.start { _ in }
+restarted.stop()
+render(DashboardUpdate(limits: [], usageState: .unavailable), to: output + "-usage-unavailable.png")
+print("Usage states passed: populated, missing, unavailable, unrelated update, recovery and wire encoding")
