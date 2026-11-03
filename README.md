@@ -176,3 +176,11 @@ existing polling intervals and stop-on-mode-exit behaviour are unchanged.
 Live mode swaps and widget swipes still need checking on the phone.
 
 Landscape layout checks in `check-dashboard.sh` cover SE (568×320), iPhone 7, Plus, mini, asymmetric left/right notches, and Max (932×430), with explicit safe-area insets. They assert slot containment, the original iPhone 7 frames, and unclipped waiting/welcome text after live resizing. PNGs in `build/widget-check` include widget combinations and music. Insets are injected only by the check harness; the app uses UIKit’s live safe area. Metal backgrounds are not captured by these layer renders. Physical-device rotation, notch/home-indicator behavior, swipe feel, and entrance/disconnect animations still need device checks.
+
+### Phone webcam controls
+
+While connected, the phone shows a safe-area camera selector (Front / Back) and webcam status above every display mode. Selection lasts for the current app session and does not turn the webcam on; the Mac still controls webcam demand. Switching cameras or landscape orientation restarts capture and H.264 with a fresh keyframe, without changing the wire protocol.
+
+“Webcam live” means encoded camera frames are being accepted by the active connection's send queue. It does not confirm that a Mac application has displayed them. Missing frames clear the live status and show an error after three seconds. Camera interruption, permission denial, and encoder startup failures show errors; turn webcam off and on from the Mac to retry. Backgrounding or disconnecting clears the indicator and stops capture.
+
+Device validation checklist: switch Front/Back repeatedly while a Mac camera client is open; rotate between landscape orientations; unplug during switching; background and reconnect; deny camera permission; interrupt capture with another camera user. Confirm the first picture after each switch decodes, the selected lens matches the picture, and no live indicator survives disconnect/background. These require physical-device testing.
