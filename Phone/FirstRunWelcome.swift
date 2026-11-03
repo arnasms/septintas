@@ -6,6 +6,10 @@ enum FirstRunWelcome {
     static let seenKey = "firstRunWelcomeSeen"
 
     static func claim(defaults: UserDefaults = .standard) -> Bool {
+        #if WELCOME_PREVIEW
+        // Test IPA only: preview on existing installs without changing their saved state.
+        return true
+        #else
         let seen = defaults.bool(forKey: seenKey)
         // Claim on launch, rather than rotation: quitting during welcome must not repeat it.
         defaults.set(true, forKey: seenKey)
@@ -15,6 +19,7 @@ enum FirstRunWelcome {
             (try? manager.attributesOfItem(atPath: $0.path))?[.modificationDate] as? Date
         }
         return shouldWelcome(seen: seen, containerDate: containerDate, buildDate: buildDate)
+        #endif
     }
 
     static func shouldWelcome(seen: Bool, containerDate: Date?, buildDate: Date?) -> Bool {

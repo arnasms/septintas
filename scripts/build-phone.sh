@@ -8,10 +8,16 @@ OUT=build/Payload/septintas.app
 rm -rf build/Payload build/i7.ipa
 mkdir -p "$OUT"
 
+# WELCOME_PREVIEW=1 makes a test build that welcomes on every launch.
+SWIFT_FLAGS=()
+if [[ "${WELCOME_PREVIEW:-0}" == "1" ]]; then
+    SWIFT_FLAGS+=(-D WELCOME_PREVIEW)
+fi
+
 SDK=$(xcrun --sdk iphoneos --show-sdk-path)
 xcrun --sdk iphoneos swiftc -O -parse-as-library \
     -sdk "$SDK" -target arm64-apple-ios15.0 -swift-version 5 \
-    -module-name i7 \
+    -module-name i7 "${SWIFT_FLAGS[@]}" \
     Phone/*.swift Shared/*.swift \
     -o "$OUT/septintas"
 
