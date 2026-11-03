@@ -4,10 +4,11 @@ import Metal
 // Renders the waiting screen's effect to PNGs on the Mac, composited over a stand-in dashboard, so
 // the shader can be checked without installing on the phone.
 //
-// Usage: shadercheck <output folder>
+// Usage: shadercheck <output folder> [--welcome] (iPhone 7 portrait at 2x)
 
 let folder = CommandLine.arguments[1]
-let width = 1334, height = 750
+let welcome = CommandLine.arguments.contains("--welcome")
+let width = welcome ? 750 : 1334, height = welcome ? 1334 : 750
 let device = MTLCreateSystemDefaultDevice()!
 let library = try! device.makeLibrary(source: waitingShaderSource, options: nil)
 let description = MTLRenderPipelineDescriptor()
@@ -76,17 +77,39 @@ func render(name: String, time: Float, impact: Float, effect: Float = 0, warmth:
         let shadow = NSShadow()
         shadow.shadowColor = NSColor(red: 0.45, green: 0.05, blue: 0.1, alpha: 0.35)
         shadow.shadowBlurRadius = 20
-        let title = NSAttributedString(string: "Waiting for your Mac", attributes: [
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let title = NSAttributedString(string: welcome ? "Welcome to septintas" : "Waiting for your Mac", attributes: [
             .font: base,
+            .paragraphStyle: paragraph,
             .foregroundColor: NSColor.white,
             .shadow: shadow,
         ])
-        let size = title.size()
-        title.draw(at: NSPoint(x: (CGFloat(width) - size.width) / 2, y: (CGFloat(height) - size.height) / 2))
+        if welcome {
+            let textWidth = CGFloat(width) - 96
+            let subtitle = NSAttributedString(string: "Rotate your iPhone to landscape.", attributes: [
+                .font: NSFont.systemFont(ofSize: 36), .foregroundColor: NSColor.white,
+                .paragraphStyle: paragraph,
+            ])
+            let options: NSString.DrawingOptions = [.usesLineFragmentOrigin, .usesFontLeading]
+            let titleHeight = ceil(title.boundingRect(with: NSSize(width: textWidth, height: 1000), options: options).height)
+            let subHeight = ceil(subtitle.boundingRect(with: NSSize(width: textWidth, height: 1000), options: options).height)
+            let bottom = (CGFloat(height) - titleHeight - 32 - subHeight) / 2
+            subtitle.draw(with: NSRect(x: 48, y: bottom, width: textWidth, height: subHeight), options: options)
+            title.draw(with: NSRect(x: 48, y: bottom + subHeight + 32, width: textWidth, height: titleHeight), options: options)
+        } else {
+            let size = title.size()
+            title.draw(at: NSPoint(x: (CGFloat(width) - size.width) / 2, y: (CGFloat(height) - size.height) / 2))
+        }
         NSGraphicsContext.restoreGraphicsState()
     }
     try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(folder)/\(name).png"))
     print("wrote \(name)")
+}
+
+if welcome {
+    render(name: "welcome-portrait", time: 5, impact: -1, warmth: 0)
+    exit(0)
 }
 
 render(name: "idle-a", time: 5, impact: -1)
