@@ -174,3 +174,5 @@ existing polling intervals and stop-on-mode-exit behaviour are unchanged.
 
 `Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Run `./scripts/check-dashboard.sh` to render the dashboard variants and check calendar capacity.
 Live mode swaps and widget swipes still need checking on the phone.
+
+Landscape layout checks in `check-dashboard.sh` cover SE (568×320), iPhone 7, Plus, mini, asymmetric left/right notches, and Max (932×430), with explicit safe-area insets. They assert slot containment, the original iPhone 7 frames, and unclipped waiting/welcome text after live resizing. PNGs in `build/widget-check` include widget combinations and music. Insets are injected only by the check harness; the app uses UIKit’s live safe area. Metal backgrounds are not captured by these layer renders. Physical-device rotation, notch/home-indicator behavior, swipe feel, and entrance/disconnect animations still need device checks.

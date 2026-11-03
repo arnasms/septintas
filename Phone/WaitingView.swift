@@ -44,6 +44,7 @@ final class WaitingView: UIView, MTKViewDelegate {
         setUpMetal()
 
         title.text = "Waiting for your Mac"
+        title.numberOfLines = 0
         title.textAlignment = .center
         title.textColor = .white
         title.font = .systemFont(ofSize: 36, weight: .semibold)
@@ -96,22 +97,28 @@ final class WaitingView: UIView, MTKViewDelegate {
     override func layoutSubviews() {
         super.layoutSubviews()
         metal.frame = bounds
+        let safe = bounds.inset(by: safeAreaInsets)
+        let width = max(0, safe.width - 48)
         if showsWelcome {
-            let width = max(0, bounds.width - 48)
             let titleSize = title.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
             let subtitleSize = subtitle.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-            let top = (bounds.height - titleSize.height - 16 - subtitleSize.height) / 2
-            title.frame = CGRect(x: 24, y: top, width: width, height: titleSize.height)
-            subtitle.frame = CGRect(x: 24, y: title.frame.maxY + 16, width: width, height: subtitleSize.height)
+            let top = safe.minY + (safe.height - titleSize.height - 16 - subtitleSize.height) / 2
+            title.frame = CGRect(x: safe.minX + 24, y: top, width: width, height: titleSize.height)
+            subtitle.frame = CGRect(x: safe.minX + 24, y: title.frame.maxY + 16, width: width, height: subtitleSize.height)
         } else {
-            title.frame = bounds
+            title.frame = CGRect(x: safe.minX + 24, y: safe.minY, width: width, height: safe.height)
         }
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        setNeedsLayout()
     }
 
     func setWelcome(_ welcome: Bool) {
         showsWelcome = welcome
         title.text = welcome ? "Welcome to septintas" : "Waiting for your Mac"
-        title.numberOfLines = welcome ? 0 : 1
+        title.numberOfLines = 0
         subtitle.isHidden = !welcome
         setNeedsLayout()
     }
