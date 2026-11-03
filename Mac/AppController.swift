@@ -262,6 +262,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             webcam.isEnabled = connection != nil
             menu.addItem(webcam)
         }
+        // The setup-checks branch supplies an actionable setup dialog instead.
+        // Add inline requirements only to the passive placeholder used without that branch.
+        if let item = menu.items.last, item.title == "Webcam needs OBS's virtual camera", item.action == nil {
+            let requirements = NSMenu()
+            for text in ["Install OBS and start its Virtual Camera once.",
+                         "Allow the camera extension in System Settings.",
+                         "OBS can then stay closed.",
+                         "Display and dashboard work without OBS."] {
+                let requirement = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+                requirement.isEnabled = false
+                requirements.addItem(requirement)
+            }
+            item.submenu = requirements
+            item.isEnabled = true
+        }
         menu.addItem(.separator())
 
         let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")

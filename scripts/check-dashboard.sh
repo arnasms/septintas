@@ -13,3 +13,5 @@ xcrun swiftc -O -target arm64-apple-ios15.0-macabi -sdk "$SDK" \
 build/dashcheck build/widget-check/dashboard
 swiftc Shared/Dashboard.swift Shared/CalendarLayout.swift Tools/calendarcheck/main.swift -o build/calendarcheck
 build/calendarcheck
+swiftc Shared/Dashboard.swift Mac/LimitsSource.swift Tools/limitscheck/main.swift -o build/limitscheck
+build/limitscheck
