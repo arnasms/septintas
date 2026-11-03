@@ -8,6 +8,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let link = PhoneLink()
     private let camera = VirtualCamera()
     private let decoder = CameraDecoder()
+    private let calendarPermissionStore = EKEventStore()
+    private var calendarRequestPending = false
 
     private var connection: WireConnection?
     private var mode: MacMode?
@@ -242,8 +244,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             menu.addItem(item)
         }
-        if EKEventStore.authorizationStatus(for: .event) != .fullAccess {
-            let item = NSMenuItem(title: "Allow Calendar Access…", action: #selector(showCalendarSetup), keyEquivalent: "")
+        if let title = CalendarSetup(authorization: EKEventStore.authorizationStatus(for: .event)).menuTitle {
+            let item = NSMenuItem(title: title, action: #selector(showCalendarSetup), keyEquivalent: "")
             item.target = self
             menu.addItem(item)
         }
@@ -284,6 +286,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func askScreenRecording() {
+        setupHelp("Allow Screen Recording", "Screen sharing needs Screen Recording access. In System Settings → Privacy & Security → Screen Recording (or Screen & System Audio Recording), enable septintas. Quit and reopen septintas if macOS asks, then reconnect the iPhone.")
         if !CGRequestScreenCaptureAccess() {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         }
@@ -298,18 +301,42 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func showUsageSetup() {
-        setupHelp("Usage numbers need CodexBar", "Install CodexBar in Applications and configure your providers there. CodexBar can stay closed. The other dashboard widgets work without it.")
+        setupHelp("Usage numbers need CodexBar", "Install CodexBar at /Applications/CodexBar.app with its bundled Contents/Helpers/CodexBarCLI executable, then open CodexBar and configure your providers. If CodexBar is already installed, update or reinstall it to restore the CLI. CodexBar can stay closed afterward. Reopen this menu to check again. The other dashboard widgets work without it.")
     }
 
     @objc private func showWebcamSetup() {
-        setupHelp("Set up the webcam", "Install OBS in Applications, open it once and start its Virtual Camera to install the camera component. Allow the camera extension in System Settings if asked. OBS can then stay closed. The display and dashboard work without OBS.")
+        setupHelp("Set up the webcam", "Install OBS Studio 30 or later in Applications and open it. Click Start Virtual Camera in Controls and follow the extension approval prompt. On macOS 14, check System Settings → Privacy & Security → Security; on newer macOS, check General → Login Items & Extensions for OBS’s camera or media extension. Once installed, stop the virtual camera and quit OBS so septintas can supply its frames. Reopen this menu to check again, then select OBS Virtual Camera in your video app. The display and dashboard work without OBS.")
     }
 
     @objc private func showCalendarSetup() {
-        if EKEventStore.authorizationStatus(for: .event) == .notDetermined {
-            EKEventStore().requestFullAccessToEvents { _, _ in }
-        } else {
+        let setup = CalendarSetup(authorization: EKEventStore.authorizationStatus(for: .event))
+        switch setup {
+        case .request, .upgrade:
+            guard !calendarRequestPending else { return }
+            calendarRequestPending = true
+            // Retain the store until EventKit finishes, even if the controller goes away.
+            let store = calendarPermissionStore
+            store.requestFullAccessToEvents { [weak self, store] granted, error in
+                DispatchQueue.main.async {
+                    _ = store
+                    guard let self else { return }
+                    self.calendarRequestPending = false
+                    if let error {
+                        self.setupHelp("Calendar access failed", error.localizedDescription)
+                    } else if granted {
+                        self.setupHelp("Calendar access allowed", "Reconnect the iPhone to refresh the calendar. Reopen this menu to check setup again.")
+                    } else {
+                        self.setupHelp("Calendar needs Full Access", "Open System Settings → Privacy & Security → Calendars and give septintas Full Access. Add Events Only cannot read upcoming events. After changing access, reconnect the iPhone to refresh the calendar, then reopen this menu to check again.")
+                    }
+                }
+            }
+        case .settings:
+            setupHelp("Calendar needs Full Access", "Open System Settings → Privacy & Security → Calendars and give septintas Full Access. Add Events Only cannot read upcoming events. After changing access, reconnect the iPhone to refresh the calendar, then reopen this menu to check again.")
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+        case .restricted:
+            setupHelp("Calendar access is restricted", "macOS policy prevents Calendar access. Ask the administrator managing this Mac to allow Calendar access for septintas. The app cannot request permission while this restriction applies.")
+        case .ready:
+            break
         }
     }
 
