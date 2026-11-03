@@ -33,3 +33,16 @@ usbmux Connect handshakes have bounded IO waits.
 
 Install build/i7.ipa manually with TrollStore. No phone installation, remote launch,
 permission test or phone data deletion is part of the automated checks.
+
+## Foreground system overlays
+
+Control Center and Notification Center temporarily make the app inactive. That pauses
+waiting-screen animation and disables idle prevention, but keeps the USB connection
+and current mode. Only `applicationDidEnterBackground` tears down the session (app
+switching or locking). Becoming active restarts animation and idle prevention; the
+listener start is idempotent, so an existing session is retained.
+
+Manual device checks still required: open/close both centers repeatedly while showing
+the dashboard and second screen; confirm no waiting transition. Repeat during webcam
+capture (iOS may interrupt capture independently), then lock/unlock and switch apps to
+confirm actual background teardown and reconnect still work.

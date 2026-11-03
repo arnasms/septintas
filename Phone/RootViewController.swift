@@ -88,6 +88,12 @@ final class RootViewController: UIViewController {
     }
 
     func appWillResign() {
+        // System overlays make us inactive without leaving the foreground. Keep the
+        // USB session and visible mode intact; backgrounding owns teardown.
+        waiting.setAppActive(false)
+    }
+
+    func appEnteredBackground() {
         waiting.setAppActive(false)
         server.stop()
         let old = connection
