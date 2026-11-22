@@ -17,6 +17,8 @@ final class WaitingView: UIView, MTKViewDelegate {
     private var queue: MTLCommandQueue?
     private var pipeline: MTLRenderPipelineState?
     private let title = UILabel()
+    private let subtitle = UILabel()
+    private var showsWelcome = false
     private let started = CACurrentMediaTime()
     private var impactAt: CFTimeInterval?
     private var effect: Float = 0
@@ -50,6 +52,13 @@ final class WaitingView: UIView, MTKViewDelegate {
         title.layer.shadowRadius = 10
         title.layer.shadowOffset = .zero
         addSubview(title)
+        subtitle.text = "Rotate your iPhone to landscape."
+        subtitle.font = .systemFont(ofSize: 18)
+        subtitle.textColor = .white
+        subtitle.textAlignment = .center
+        subtitle.numberOfLines = 0
+        subtitle.isHidden = true
+        addSubview(subtitle)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -87,7 +96,24 @@ final class WaitingView: UIView, MTKViewDelegate {
     override func layoutSubviews() {
         super.layoutSubviews()
         metal.frame = bounds
-        title.frame = bounds
+        if showsWelcome {
+            let width = max(0, bounds.width - 48)
+            let titleSize = title.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+            let subtitleSize = subtitle.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+            let top = (bounds.height - titleSize.height - 16 - subtitleSize.height) / 2
+            title.frame = CGRect(x: 24, y: top, width: width, height: titleSize.height)
+            subtitle.frame = CGRect(x: 24, y: title.frame.maxY + 16, width: width, height: subtitleSize.height)
+        } else {
+            title.frame = bounds
+        }
+    }
+
+    func setWelcome(_ welcome: Bool) {
+        showsWelcome = welcome
+        title.text = welcome ? "Welcome to septintas" : "Waiting for your Mac"
+        title.numberOfLines = welcome ? 0 : 1
+        subtitle.isHidden = !welcome
+        setNeedsLayout()
     }
 
     /// One second to black, then two seconds for the field; the title starts a second later.

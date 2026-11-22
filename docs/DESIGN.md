@@ -31,6 +31,15 @@ requested mode until the active effect finishes. Disconnect cancels the active e
 its visible frame under the return to waiting. Reduce Motion and unavailable Metal use short fades.
 The waiting title reads “Waiting for your Mac” and uses the system Semibold font at 36 points.
 
+On every app launch, the same waiting field welcomes the user with “Welcome to septintas”
+(36pt system Semibold, wrapping in portrait) and “Rotate your iPhone to landscape.” (18pt).
+Only this welcome allows portrait. Landscape at launch, rotating to landscape, or a Mac
+connection restores the unchanged landscape-only waiting/connected flow. The welcome allows
+Auto-Lock. It repeats on the next app launch, including existing installations, but does not
+repeat when returning from a connected mode or resuming the app from the background.
+`Tools/shadercheck --welcome` renders an iPhone 7 portrait copy/layout approximation with the
+real shader (AppKit text metrics).
+
 The warm field keeps its flowing pattern, with amber reduced to a small accent and more pink/coral.
 
 While disconnected, the amber stop is pure black. On connection it blends back to amber in 0.25s
@@ -67,3 +76,10 @@ and clips excess rows at its lower edge; its count is recomputed after the resiz
 
 Screen Size now offers Default and More Space, persists in a fixed preferences domain and flushes
 on selection. Removed Larger Text preferences migrate to Default. Standby is absent from the menu.
+
+Dashboard slots split the padded width equally. Each slot pages vertically through Usage,
+Calendar and music, and Clock, wrapping in both directions. UIKit paging follows the finger and
+settles to one neighbouring widget; short drags can return to the current widget. Each slot saves
+its own stable widget ID on the phone. Duplicate selections are independent. Calendar and music
+remain one widget, with their existing 0.65s fill/shrink animation inside either slot. The shared
+minute pixel shift and dashboard transition still wrap both slots as a single surface.

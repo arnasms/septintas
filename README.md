@@ -25,6 +25,48 @@ This is a personal project. I use it with TrollStore on my iPhone 7 and my Mac, 
 - [OBS](https://obsproject.com) installed for the webcam. OBS itself can stay closed.
 - [CodexBar](https://github.com/steipete/CodexBar) installed for the dashboard's usage numbers. It doesn't need to be running.
 
+## Set up with an agent
+
+Copy this prompt into a coding agent on your Mac that can run terminal commands. It will handle the setup it can automate and walk you through the steps that need your phone or a system permission.
+
+```text
+Set up septintas on my Mac and iPhone, working through the setup until it is
+running or you reach a step that needs my input.
+
+Use https://github.com/arnasms/septintas. If we are already in its checkout,
+use it and preserve any existing changes; otherwise clone it. Read README.md,
+docs/DESIGN.md and the build scripts before running anything. Follow the
+repository's current instructions and use its existing scripts.
+
+Check my macOS version, Xcode and active developer directory, iPhoneOS SDK,
+XcodeGen, ldid, OBS and CodexBar. Explain and install missing dependencies
+where possible, asking before paid downloads or replacing existing software.
+The tested phone setup is an iPhone 7 on iOS 15.8.6 with TrollStore already
+installed. Ask me to confirm my phone's model, iOS version and TrollStore
+availability before trying to install the phone app. If my setup differs,
+explain what is untested; do not jailbreak, change iOS or install TrollStore.
+
+Build the Mac app with ./scripts/build-mac.sh and the phone IPA with
+./scripts/build-phone.sh. Diagnose build failures and resolve local setup
+issues; do not rewrite app code just to bypass an unsupported environment.
+Launch the built Mac app. Guide me through any signing/keychain prompts and
+required macOS permissions, including Screen Recording, and phone permissions
+when prompted. Never disable system security or grant permissions on my behalf.
+
+Help me install build/i7.ipa with TrollStore for the first installation.
+./scripts/push-phone.sh is only for updates when septintas is already running
+on the phone and TrollStore's URL Scheme Enabled setting is on. Have me connect
+the phone by USB, trust the Mac if prompted, and open septintas in the foreground.
+
+Verify the USB connection, Extended Display, Dashboard and webcam as far as
+this hardware allows. Walk me through selecting the OBS virtual camera in a
+camera app and turning the webcam off from the Mac menu afterwards. Distinguish
+what you actually verified from checks I still need to perform on the devices.
+Finish with the built app and IPA paths, what works, and any remaining blocker
+with the exact next step. Ask for manual actions as they become necessary,
+then continue when I confirm they are done.
+```
+
 ## Ways you can help out
 
 ### Pull requests
@@ -99,8 +141,36 @@ A mode is anything the phone's screen shows. The connection, webcam and always-o
 
 The compiler flags the two `switch` statements to fill in (`makePhoneMode`, `makeMacMode`), and the menu lists the new mode by itself. Data travels as `MessageType.modeData`; the format is up to the mode.
 
+## Adding a dashboard widget
+
+The dashboard has two equal slots, controlled on the phone. Swipe up for the next widget or down
+for the previous one. Both slots use the same circular list: Usage, Calendar and music, Clock.
+Each slot remembers its choice across app launches and reconnects. Duplicates are allowed; changing
+one slot never changes the other. Calendar and its expanding/collapsing music card stay together.
+Clock uses the phone's local time and date, without any Mac data.
+
+1. Add a self-contained `DashboardWidget` in `Phone/` (see `ClockDashboardWidget` in
+   `Phone/DashboardWidgets.swift`). Return its view, lay out within its bounds, implement
+   `setWidgetBackgroundAlpha` for the entrance/exit, and optionally implement `tick()` and
+   `apply(_:)`. The dashboard handles foreground colour transitions and the shared pixel shift.
+2. Register a factory in `dashboardWidgets` at the end of `Phone/DashboardMode.swift`. Give it a
+   unique, stable ID, an accessibility title and a position in the swipe order. Factories must create
+   independent instances because both slots can show the same widget. Keep registered IDs stable
+   to preserve saved choices; removed IDs fall back to the slot's default.
+3. If it needs new Mac data, add optional fields to `DashboardUpdate` in `Shared/Dashboard.swift`
+   and gather/send them from `Mac/DashboardMode.swift`. No Mac controls are needed.
+4. Add a `previewWidgets` case to `Tools/dashcheck/main.swift` and run
+   `./scripts/check-dashboard.sh`. Check actual swipes on the phone too.
+
+Widgets are retained and updated in each slot so adjacent pages are ready before a drag begins.
+Only the current page and its two neighbours are attached as visible pages. Mac sources continue
+running while Dashboard is active, including for widgets currently off screen. This keeps swipes
+instant and data fresh, and avoids restarting the usage CLI/calendar/helper on every swipe. The
+existing polling intervals and stop-on-mode-exit behaviour are unchanged.
+
 ## Testing without the phone
 
 `Tools/fakephone` stands in for the iPhone on the Mac. Start it, then open the Mac app with `I7_DIRECT_PORT=27077` to connect to it instead of USB. `I7_TEST_CAMERA=1` also starts the webcam straight away.
 
-`Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Live mode swaps still need checking on the phone.
+`Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Run `./scripts/check-dashboard.sh` to render the dashboard variants and check calendar capacity.
+Live mode swaps and widget swipes still need checking on the phone.

@@ -1,7 +1,7 @@
 import CoreText
 import UIKit
 
-/// Limits on the left half; Now Playing above a two-thirds-height calendar on the right.
+/// Two independently swipeable widget slots, with webcam and transport left underneath.
 final class DashboardPhoneMode: PhoneMode {
     let id = ModeID.dashboard
     var onReady: (() -> Void)?
@@ -10,6 +10,8 @@ final class DashboardPhoneMode: PhoneMode {
     var view: UIView { dashboard }
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) { dashboard.setWidgetBackgroundAlpha(alpha) }
     func setContentColorProgress(_ progress: CGFloat) { dashboard.setContentColorProgress(progress) }
+
+    func previewWidgets(_ ids: [String]) { dashboard.previewWidgets(ids) }
 
     private let decoder = JSONDecoder()
     private var timer: Timer?
@@ -157,143 +159,54 @@ private func label(size: CGFloat, weight: UIFont.Weight = .regular, color: UICol
 
 private final class DashboardView: UIView {
     private let content = UIView()
+    private let foreground = DashboardForeground()
+    private let slots = [DashboardSlot(defaultID: "usage", key: "left"),
+                         DashboardSlot(defaultID: "calendar", key: "right")]
     private var nextPixelShift = ProcessInfo.processInfo.systemUptime + 60
     private var pixelShiftStep = 0
-    private let foreground = DashboardForeground()
-    private var showsMusic = false
-    private var receivedTrack = false
-    private var latestTrack: TrackInfo?
-    private var presenceGeneration = 0
-
-    func setContentColorProgress(_ progress: CGFloat) { foreground.setProgress(progress, in: self) }
-    private let limitsTile = UsageTile()
-    private let rule = UIView()
-    /// Top and bottom cards. Which provider each shows comes from the Mac's account picker.
-    private let top = ProviderSection(provider: .claude)
-    private let bottom = ProviderSection(provider: .codex)
-    /// When both cards are one provider, its cost can't be split per account, so it sits once
-    /// below both cards under its own divider instead of inside either card.
-    private let sharedRule = UIView()
-    private let sharedCost = CostLine()
-    private var showsSharedCost = false
-    private let playing = NowPlayingTile()
-    private let calendarTile = CalendarTile()
 
     init() {
         super.init(frame: .zero)
         backgroundColor = .black
         addSubview(content)
-        rule.backgroundColor = ruleColor
-        content.addSubview(limitsTile)
-        limitsTile.addSubview(top)
-        limitsTile.addSubview(rule)
-        limitsTile.addSubview(bottom)
-        sharedRule.backgroundColor = ruleColor
-        limitsTile.addSubview(sharedRule)
-        limitsTile.addSubview(sharedCost)
-        sharedRule.isHidden = true
-        sharedCost.isHidden = true
-        content.addSubview(playing)
-        content.addSubview(calendarTile)
-        playing.isHidden = true
+        slots.forEach { content.addSubview($0) }
     }
-
     required init?(coder: NSCoder) { fatalError() }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Bounds/center preserve the shift when layout changes or the music card animates.
         content.bounds = bounds
         content.center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let pad: CGFloat = 8
-        let gap: CGFloat = 8
-        let columnWidth = (bounds.width - pad * 2 - gap) / 2
-        let inner = bounds.height - pad * 2
-
-        limitsTile.frame = CGRect(x: pad, y: pad, width: columnWidth, height: inner)
-        let sectionInsetX: CGFloat = 16
-        let sectionInsetY: CGFloat = 6
-        let sectionWidth = columnWidth - sectionInsetX * 2
-        let sectionHeight: CGFloat
-        if showsSharedCost {
-            // Cards without a cost row hold three items and four gaps each; the cost line below gets a gap
-            // on either side. Using one gap size everywhere keeps the cost line on the cards' rhythm, and
-            // the sections spread their own spare height into exactly this gap (see ProviderSection).
-            let free = inner - sectionInsetY * 2 - 2 - ProviderSection.contentHeight(withCost: false) * 2 - CostLine.height
-            let space = max(0, free / 10)
-            sectionHeight = ProviderSection.contentHeight(withCost: false) + space * 4
-            let ruleY = sectionInsetY + sectionHeight * 2 + 1
-            sharedRule.frame = CGRect(x: sectionInsetX, y: ruleY, width: sectionWidth, height: 1)
-            sharedCost.frame = CGRect(x: sectionInsetX, y: ruleY + 1 + space, width: sectionWidth, height: CostLine.height)
-        } else {
-            sectionHeight = (inner - sectionInsetY * 2 - 1) / 2
+        let width = (bounds.width - 24) / 2
+        for (index, slot) in slots.enumerated() {
+            slot.frame = CGRect(x: 8 + CGFloat(index) * (width + 8), y: 8,
+                                width: width, height: bounds.height - 16)
         }
-        top.frame = CGRect(x: sectionInsetX, y: sectionInsetY, width: sectionWidth, height: sectionHeight)
-        rule.frame = CGRect(x: sectionInsetX, y: sectionInsetY + sectionHeight, width: sectionWidth, height: 1)
-        bottom.frame = CGRect(x: sectionInsetX, y: sectionInsetY + sectionHeight + 1, width: sectionWidth, height: sectionHeight)
-
-        let rightX = pad + columnWidth + gap
-        let playingHeight: CGFloat = 105
-        playing.bounds = CGRect(x: 0, y: 0, width: columnWidth, height: playingHeight)
-        playing.center = CGPoint(x: rightX + columnWidth / 2, y: pad + playingHeight / 2)
-        let musicSpace = showsMusic ? playingHeight + gap : 0
-        calendarTile.frame = CGRect(x: rightX, y: pad + musicSpace, width: columnWidth, height: inner - musicSpace)
     }
-
-    private func updateMusicPresence(_ visible: Bool, animated: Bool) {
-        guard visible != showsMusic else { return }
-        presenceGeneration += 1
-        let generation = presenceGeneration
-        calendarTile.finishResize()
-        layoutIfNeeded()
-        showsMusic = visible
-        guard animated, !UIAccessibility.isReduceMotionEnabled else {
-            playing.isHidden = !visible
-            if !visible, let latestTrack { playing.apply(latestTrack) }
-            playing.alpha = visible ? 1 : 0
-            playing.transform = .identity
-            setNeedsLayout()
-            layoutIfNeeded()
-            return
-        }
-        let targetHeight = bounds.height - 16 - (visible ? 113 : 0)
-        let oldCount = calendarTile.prepareResize(to: targetHeight)
-        if visible, playing.isHidden {
-            playing.alpha = 0
-            playing.transform = CGAffineTransform(translationX: 0, y: -28)
-        }
-        playing.isHidden = false
-        setNeedsLayout()
-        UIView.animate(withDuration: 0.65, delay: 0, options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction], animations: {
-            self.layoutIfNeeded()
-            self.playing.alpha = visible ? 1 : 0
-            self.playing.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: -28)
-        }) { [weak self] _ in
-            guard let self, generation == self.presenceGeneration else { return }
-            self.playing.isHidden = !visible
-            if !visible, let latestTrack = self.latestTrack { self.playing.apply(latestTrack) }
-            self.calendarTile.finishResize()
-        }
-        if !visible { calendarTile.staggerNewEvents(after: oldCount) }
-    }
-
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) {
-        limitsTile.surface.alpha = alpha
-        playing.surface.alpha = alpha
-        calendarTile.setBackgroundAlpha(alpha)
+        slots.forEach { $0.setWidgetBackgroundAlpha(alpha) }
     }
-
+    func setContentColorProgress(_ progress: CGFloat) {
+        slots.forEach { $0.contentColorProgress = progress }
+        foreground.setProgress(progress, in: self)
+    }
     func tick() {
         updatePixelShift()
         let phase = foreground.progress
         foreground.setProgress(1, in: self)
-        calendarTile.tick()
-        playing.tick()
-        top.tick()
-        bottom.tick()
+        slots.forEach { $0.tick() }
         foreground.setProgress(phase, in: self)
     }
-
+    func apply(_ update: DashboardUpdate) {
+        let phase = foreground.progress
+        foreground.setProgress(1, in: self)
+        slots.forEach { $0.apply(update) }
+        foreground.setProgress(phase, in: self)
+    }
+    // Used by dashcheck, without changing saved phone preferences.
+    func previewWidgets(_ ids: [String]) {
+        for (slot, id) in zip(slots, ids) { slot.select(id, persist: false) }
+    }
     func resetPixelShift() {
         pixelShiftStep = 0
         nextPixelShift = ProcessInfo.processInfo.systemUptime + 60
@@ -326,46 +239,180 @@ private final class DashboardView: UIView {
         }
     }
 
+}
+
+private final class UsageWidget: UIView, DashboardWidget {
+    var view: UIView { self }
+    private let tile = UsageTile()
+    private let rule = UIView()
+    /// Top and bottom cards. Which provider and account each shows comes from the Mac's account picker.
+    private let top = ProviderSection(provider: .claude)
+    private let bottom = ProviderSection(provider: .codex)
+    /// When both cards are one provider, its cost can't be split per account, so it sits once
+    /// below both cards under its own divider instead of inside either card.
+    private let sharedRule = UIView()
+    private let sharedCost = CostLine()
+    private var showsSharedCost = false
+
+    init() {
+        super.init(frame: .zero)
+        addSubview(tile)
+        rule.backgroundColor = ruleColor
+        sharedRule.backgroundColor = ruleColor
+        [top, rule, bottom, sharedRule, sharedCost].forEach { tile.addSubview($0) }
+        sharedRule.isHidden = true
+        sharedCost.isHidden = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        tile.frame = bounds
+        let insetX: CGFloat = 16
+        let insetY: CGFloat = 6
+        let width = bounds.width - insetX * 2
+        let sectionHeight: CGFloat
+        if showsSharedCost {
+            // Cards without a cost row hold three items and four gaps each; the cost line below gets a gap
+            // on either side. Using one gap size everywhere keeps the cost line on the cards' rhythm, and
+            // the sections spread their own spare height into exactly this gap (see ProviderSection).
+            let free = bounds.height - insetY * 2 - 2 - ProviderSection.contentHeight(withCost: false) * 2 - CostLine.height
+            let space = max(0, free / 10)
+            sectionHeight = ProviderSection.contentHeight(withCost: false) + space * 4
+            let ruleY = insetY + sectionHeight * 2 + 1
+            sharedRule.frame = CGRect(x: insetX, y: ruleY, width: width, height: 1)
+            sharedCost.frame = CGRect(x: insetX, y: ruleY + 1 + space, width: width, height: CostLine.height)
+        } else {
+            sectionHeight = (bounds.height - insetY * 2 - 1) / 2
+        }
+        top.frame = CGRect(x: insetX, y: insetY, width: width, height: sectionHeight)
+        rule.frame = CGRect(x: insetX, y: insetY + sectionHeight, width: width, height: 1)
+        bottom.frame = CGRect(x: insetX, y: insetY + sectionHeight + 1, width: width, height: sectionHeight)
+    }
+
     func apply(_ update: DashboardUpdate) {
-        let phase = foreground.progress
-        foreground.setProgress(1, in: self)
+        guard let limits = update.limits, !limits.isEmpty else { return }
         var filled = Set<Int>()
-        for limits in update.limits ?? [] {
+        for value in limits {
             // Messages from before the account picker have no slot: Claude on top, Codex below.
-            let slot = limits.slot ?? (limits.provider == .claude ? 0 : 1)
-            (slot == 0 ? top : bottom).apply(limits)
+            let slot = value.slot ?? (value.provider == .claude ? 0 : 1)
+            (slot == 0 ? top : bottom).apply(value)
             filled.insert(slot)
         }
-        if let limits = update.limits, !limits.isEmpty, limits.allSatisfy({ $0.slot != nil }) {
+        if limits.allSatisfy({ $0.slot != nil }) {
             // The Mac sends every picked account each time, so a card it left out isn't picked any more
             // (only one account is ticked). Hide it rather than keep showing the old account.
             top.isHidden = !filled.contains(0)
             bottom.isHidden = !filled.contains(1)
             rule.isHidden = top.isHidden || bottom.isHidden
         }
-        if let limits = update.limits, !limits.isEmpty {
-            // accountName is only sent when both cards are the same provider: the case where cost can't be split.
-            let shared = limits.contains { $0.accountName != nil }
-            if shared, let source = limits.first(where: { $0.costShared != true }) {
-                sharedCost.set(today: source.costToday, month: source.costMonth)
-            }
-            if shared != showsSharedCost {
-                showsSharedCost = shared
-                sharedRule.isHidden = !shared
-                sharedCost.isHidden = !shared
-                setNeedsLayout()
-            }
+        // accountName is only sent when both cards are the same provider: the case where cost can't be split.
+        let shared = limits.contains { $0.accountName != nil }
+        if shared, let source = limits.first(where: { $0.costShared != true }) {
+            sharedCost.set(today: source.costToday, month: source.costMonth)
         }
+        if shared != showsSharedCost {
+            showsSharedCost = shared
+            sharedRule.isHidden = !shared
+            sharedCost.isHidden = !shared
+            setNeedsLayout()
+        }
+    }
+    func tick() { top.tick(); bottom.tick() }
+    func setWidgetBackgroundAlpha(_ alpha: CGFloat) { tile.surface.alpha = alpha }
+}
+
+private final class CalendarMusicWidget: UIView, DashboardWidget {
+    var view: UIView { self }
+    var contentColorProgress: CGFloat = 1
+    private var showsMusic = false
+    private var receivedTrack = false
+    private var latestTrack: TrackInfo?
+    private var presenceGeneration = 0
+
+    private let playing = NowPlayingTile()
+    private let calendarTile = CalendarTile()
+
+    init() {
+        super.init(frame: .zero)
+        addSubview(playing)
+        addSubview(calendarTile)
+        playing.isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let columnWidth = bounds.width
+        let inner = bounds.height
+        let gap: CGFloat = 8
+        let pad: CGFloat = 0
+        let rightX: CGFloat = 0
+        let playingHeight: CGFloat = 105
+        playing.bounds = CGRect(x: 0, y: 0, width: columnWidth, height: playingHeight)
+        playing.center = CGPoint(x: rightX + columnWidth / 2, y: pad + playingHeight / 2)
+        let musicSpace = showsMusic ? playingHeight + gap : 0
+        calendarTile.frame = CGRect(x: rightX, y: pad + musicSpace, width: columnWidth, height: inner - musicSpace)
+    }
+
+    private func updateMusicPresence(_ visible: Bool, animated: Bool) {
+        guard visible != showsMusic else { return }
+        presenceGeneration += 1
+        let generation = presenceGeneration
+        calendarTile.finishResize()
+        layoutIfNeeded()
+        showsMusic = visible
+        guard animated, !UIAccessibility.isReduceMotionEnabled else {
+            playing.isHidden = !visible
+            if !visible, let latestTrack { playing.apply(latestTrack) }
+            playing.alpha = visible ? 1 : 0
+            playing.transform = .identity
+            setNeedsLayout()
+            layoutIfNeeded()
+            return
+        }
+        let targetHeight = bounds.height - (visible ? 113 : 0)
+        let oldCount = calendarTile.prepareResize(to: targetHeight)
+        if visible, playing.isHidden {
+            playing.alpha = 0
+            playing.transform = CGAffineTransform(translationX: 0, y: -28)
+        }
+        playing.isHidden = false
+        setNeedsLayout()
+        UIView.animate(withDuration: 0.65, delay: 0, options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction], animations: {
+            self.layoutIfNeeded()
+            self.playing.alpha = visible ? 1 : 0
+            self.playing.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: -28)
+        }) { [weak self] _ in
+            guard let self, generation == self.presenceGeneration else { return }
+            self.playing.isHidden = !visible
+            if !visible, let latestTrack = self.latestTrack { self.playing.apply(latestTrack) }
+            self.calendarTile.finishResize()
+        }
+        if !visible { calendarTile.staggerNewEvents(after: oldCount) }
+    }
+
+    func setWidgetBackgroundAlpha(_ alpha: CGFloat) {
+        playing.surface.alpha = alpha
+        calendarTile.setBackgroundAlpha(alpha)
+    }
+
+    func tick() {
+        calendarTile.tick()
+        playing.tick()
+    }
+
+    func apply(_ update: DashboardUpdate) {
         if let art = update.art { playing.setArt(art) }
         if let track = update.track {
             latestTrack = track
             // Keep the last song visible while its card exits, rather than flashing an idle label.
             if track.hasTrack || !showsMusic { playing.apply(track) }
-            updateMusicPresence(track.hasTrack && track.isPlaying, animated: receivedTrack && window != nil && phase >= 1)
+            updateMusicPresence(track.hasTrack && track.isPlaying, animated: receivedTrack && window != nil && contentColorProgress >= 1)
             receivedTrack = true
         }
         if let status = update.calendar { calendarTile.apply(status) }
-        foreground.setProgress(phase, in: self)
     }
 }
 
@@ -643,6 +690,8 @@ private final class LimitRow: UIView {
         title.frame = CGRect(x: 0, y: 0, width: 80, height: 19)
         value.frame = CGRect(x: 80, y: 0, width: bounds.width - 80, height: 19)
         track.frame = CGRect(x: 0, y: 24, width: bounds.width, height: 10)
+        // A zero-width rounded fill still draws a sliver, so an empty bar hides it.
+        fill.isHidden = percent == 0
         fill.frame = CGRect(x: 0, y: 0, width: max(percent > 0 ? 10 : 0, bounds.width * CGFloat(percent) / 100), height: 10)
     }
 }
@@ -1086,3 +1135,10 @@ private final class EventBlock: UIView {
         time.frame = CGRect(x: textX, y: 24, width: textWidth, height: 18)
     }
 }
+
+/// Stable IDs are persisted on the phone. Order here is the swipe order in both slots.
+let dashboardWidgets: [DashboardWidgetRegistration] = [
+    .init(id: "usage", title: "Usage", make: { UsageWidget() }),
+    .init(id: "calendar", title: "Calendar and music", make: { CalendarMusicWidget() }),
+    .init(id: "clock", title: "Clock", make: { ClockDashboardWidget() }),
+]
