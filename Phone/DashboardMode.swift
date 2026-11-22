@@ -58,6 +58,7 @@ final class DashboardPhoneMode: PhoneMode {
     private struct Saved: Codable {
         var savedAt: Date
         var limits: [ProviderLimits]?
+        var usageState: UsageState?
         var calendar: CalendarStatus?
     }
 
@@ -70,7 +71,10 @@ final class DashboardPhoneMode: PhoneMode {
 
     private func save(_ update: DashboardUpdate) {
         saved.savedAt = Date()
-        saved.limits = update.limits ?? saved.limits
+        if let limits = update.limits {
+            saved.limits = limits
+            saved.usageState = update.usageState
+        }
         saved.calendar = update.calendar ?? saved.calendar
         guard let url = savedURL, let data = try? JSONEncoder().encode(saved) else { return }
         try? data.write(to: url, options: .atomic)
@@ -86,7 +90,7 @@ final class DashboardPhoneMode: PhoneMode {
         }
         var calendar = value.calendar
         calendar?.events.removeAll { $0.end < Date() }
-        dashboard.apply(DashboardUpdate(limits: limits, calendar: calendar))
+        dashboard.apply(DashboardUpdate(limits: limits, usageState: value.usageState, calendar: calendar))
         hasLimits = limits != nil
     }
 }
@@ -177,12 +181,18 @@ private final class DashboardView: UIView {
         super.layoutSubviews()
         content.bounds = bounds
         content.center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let width = (bounds.width - 24) / 2
+        let safe = bounds.inset(by: safeAreaInsets)
+        let width = max(0, (safe.width - 24) / 2)
         for (index, slot) in slots.enumerated() {
-            slot.frame = CGRect(x: 8 + CGFloat(index) * (width + 8), y: 8,
-                                width: width, height: bounds.height - 16)
+            slot.frame = CGRect(x: safe.minX + 8 + CGFloat(index) * (width + 8), y: safe.minY + 8,
+                                width: width, height: max(0, safe.height - 16))
         }
     }
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        setNeedsLayout()
+    }
+
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) {
         slots.forEach { $0.setWidgetBackgroundAlpha(alpha) }
     }
@@ -241,10 +251,12 @@ private final class DashboardView: UIView {
 
 }
 
-private final class UsageWidget: UIView, DashboardWidget {
+final class UsageWidget: UIView, DashboardWidget {
     var view: UIView { self }
     private let tile = UsageTile()
     private let rule = UIView()
+    /// Shown instead of the cards before any usage arrives, or when the Mac has none to send.
+    private let empty = UILabel()
     /// Top and bottom cards. Which provider and account each shows comes from the Mac's account picker.
     private let top = ProviderSection(provider: .claude)
     private let bottom = ProviderSection(provider: .codex)
@@ -259,15 +271,21 @@ private final class UsageWidget: UIView, DashboardWidget {
         addSubview(tile)
         rule.backgroundColor = ruleColor
         sharedRule.backgroundColor = ruleColor
-        [top, rule, bottom, sharedRule, sharedCost].forEach { tile.addSubview($0) }
+        [top, rule, bottom, sharedRule, sharedCost, empty].forEach { tile.addSubview($0) }
         sharedRule.isHidden = true
         sharedCost.isHidden = true
+        empty.numberOfLines = 0
+        empty.textAlignment = .center
+        empty.font = .systemFont(ofSize: 15)
+        empty.textColor = secondaryText
+        showEmpty("Waiting for usage from Mac…")
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         tile.frame = bounds
+        empty.frame = bounds.insetBy(dx: 24, dy: 24)
         let insetX: CGFloat = 16
         let insetY: CGFloat = 6
         let width = bounds.width - insetX * 2
@@ -291,7 +309,19 @@ private final class UsageWidget: UIView, DashboardWidget {
     }
 
     func apply(_ update: DashboardUpdate) {
-        guard let limits = update.limits, !limits.isEmpty else { return }
+        // nil leaves usage as it is; an array, even an empty one, replaces it.
+        guard let limits = update.limits else { return }
+        if limits.isEmpty {
+            showEmpty(update.usageState == .sourceMissing
+                ? "Usage needs CodexBar\nInstall it on your Mac and configure your providers."
+                : "Usage unavailable\nCheck your providers in CodexBar on your Mac.")
+            return
+        }
+        empty.isHidden = true
+        accessibilityValue = "Usage available"
+        top.isHidden = false
+        bottom.isHidden = false
+        rule.isHidden = false
         var filled = Set<Int>()
         for value in limits {
             // Messages from before the account picker have no slot: Claude on top, Codex below.
@@ -317,6 +347,13 @@ private final class UsageWidget: UIView, DashboardWidget {
             sharedCost.isHidden = !shared
             setNeedsLayout()
         }
+    }
+    private func showEmpty(_ text: String) {
+        empty.text = text
+        accessibilityValue = text
+        empty.isHidden = false
+        showsSharedCost = false
+        [top, rule, bottom, sharedRule, sharedCost].forEach { $0.isHidden = true }
     }
     func tick() { top.tick(); bottom.tick() }
     func setWidgetBackgroundAlpha(_ alpha: CGFloat) { tile.surface.alpha = alpha }

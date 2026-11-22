@@ -1,80 +1,169 @@
 import AVFoundation
 import UIKit
 
-/// Front camera -> H.264 -> Mac. Runs only while the Mac asks for it, since it's the part that heats the phone up.
+/// Capture and encoder mutations are serialized, including camera replacement.
 final class CameraStreamer: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    var onPacket: ((VideoPacket) -> Void)?
-
+    enum State: Equatable {
+        case stopped, starting, live, failed(String)
+    }
+    var onPacket: ((VideoPacket) -> Bool)?
+    var onState: ((State) -> Void)?
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera", qos: .userInteractive)
-    private var configured = false
+    private var input: AVCaptureDeviceInput?
     private var encoder: H264Encoder?
+    private var position: AVCaptureDevice.Position = .front
+    private var orientation: UIInterfaceOrientation = .landscapeRight
+    private var destination: ((VideoPacket) -> Bool)?
+    private var requested = false
+    private var generation = 0
+    private var state: State = .stopped
+    private var lastPacket = Date.distantPast
+    private var watchdog: DispatchSourceTimer?
 
-    // The OBS camera advertises 1920x1080, so sending that avoids any scaling in the apps that read it.
-    private let width = 1920
-    private let height = 1080
-    private let fps = 30
-    private let bitrate = 8_000_000
+    override init() {
+        super.init()
+        for name in [AVCaptureSession.wasInterruptedNotification, AVCaptureSession.runtimeErrorNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(captureFailed), name: name, object: session)
+        }
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self); watchdog?.cancel() }
+
+    @objc private func captureFailed() {
+        queue.async { [self] in
+            guard requested else { return }
+            halt()
+            publish(.failed("Camera interrupted. Turn webcam off and on to retry."))
+        }
+    }
+
+    private func publish(_ value: State) {
+        guard state != value else { return }
+        state = value
+        DispatchQueue.main.async { [weak self] in self?.onState?(value) }
+    }
 
     func start(orientation: UIInterfaceOrientation) {
+        let deliver = onPacket
         queue.async { [self] in
-            if !configured { configure() }
-            guard configured else { return }
-            apply(orientation)
-            encoder = H264Encoder(width: width, height: height, fps: fps, bitrate: bitrate, lowLatency: false)
-            encoder?.onPacket = { [weak self] packet in self?.onPacket?(packet) }
-            if !session.isRunning { session.startRunning() }
+            self.orientation = orientation
+            destination = deliver
+            guard !requested else { return }
+            requested = true
+            restart()
+        }
+    }
+
+    func selectCamera(back: Bool) {
+        queue.async { [self] in
+            let next: AVCaptureDevice.Position = back ? .back : .front
+            guard next != position else { return }
+            position = next
+            if requested { restart() }
         }
     }
 
     func stop() {
-        queue.async { [self] in
-            if session.isRunning { session.stopRunning() }
-            encoder = nil
+        queue.async { [self] in requested = false; halt(); publish(.stopped) }
+    }
+
+    private func halt() {
+        generation += 1
+        watchdog?.cancel()
+        watchdog = nil
+        encoder = nil
+        if session.isRunning { session.stopRunning() }
+    }
+
+    private func restart() {
+        halt()
+        publish(.starting)
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+            publish(.failed("Allow camera access in Settings, then turn webcam on again.")); return
         }
-    }
-
-    func forceKeyframe() {
-        queue.async { [self] in encoder?.forceNextKeyframe() }
-    }
-
-    func setOrientation(_ orientation: UIInterfaceOrientation) {
-        queue.async { [self] in apply(orientation) }
-    }
-
-    private func configure() {
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let input = try? AVCaptureDeviceInput(device: device) else { return }
-
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
+              let replacement = try? AVCaptureDeviceInput(device: device) else {
+            publish(.failed("Selected camera is unavailable.")); return
+        }
         session.beginConfiguration()
         session.sessionPreset = .hd1920x1080
-        guard session.canAddInput(input), session.canAddOutput(output) else {
+        let previous = input
+        if let previous { session.removeInput(previous) }
+        guard session.canAddInput(replacement) else {
+            if let previous, session.canAddInput(previous) { session.addInput(previous) }
             session.commitConfiguration()
-            return
+            publish(.failed("Could not switch camera.")); return
         }
-        session.addInput(input)
-        output.alwaysDiscardsLateVideoFrames = true
-        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
-        output.setSampleBufferDelegate(self, queue: queue)
-        session.addOutput(output)
+        session.addInput(replacement)
+        input = replacement
+        if !session.outputs.contains(output) {
+            guard session.canAddOutput(output) else {
+                session.commitConfiguration()
+                publish(.failed("Camera output is unavailable.")); return
+            }
+            output.alwaysDiscardsLateVideoFrames = true
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+            output.setSampleBufferDelegate(self, queue: queue)
+            session.addOutput(output)
+        }
         session.commitConfiguration()
-
         if (try? device.lockForConfiguration()) != nil {
-            let frame = CMTime(value: 1, timescale: CMTimeScale(fps))
-            device.activeVideoMinFrameDuration = frame
-            device.activeVideoMaxFrameDuration = frame
+            if device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.minFrameRate <= 30 && $0.maxFrameRate >= 30 }) {
+                device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
+                device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+            }
             device.unlockForConfiguration()
         }
-        configured = true
+        applyOrientation()
+        guard let encoder = H264Encoder(width: 1920, height: 1080, fps: 30, bitrate: 8_000_000, lowLatency: false) else {
+            publish(.failed("Could not start video encoder.")); return
+        }
+        self.encoder = encoder
+        let current = generation
+        let deliver = destination
+        encoder.onPacket = { [weak self] packet in
+            guard let self else { return }
+            self.queue.async {
+                guard self.requested, self.generation == current else { return }
+                if deliver?(packet) == true {
+                    self.lastPacket = Date()
+                    self.publish(.live)
+                } else {
+                    self.publish(.starting)
+                    self.encoder?.forceNextKeyframe()
+                }
+            }
+        }
+        encoder.forceNextKeyframe()
+        lastPacket = Date()
+        session.startRunning()
+        guard session.isRunning else { halt(); publish(.failed("Camera did not start.")); return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 1, repeating: 1)
+        timer.setEventHandler { [weak self] in
+            guard let self, Date().timeIntervalSince(self.lastPacket) > 3 else { return }
+            self.halt()
+            self.publish(.failed("Video stopped. Turn webcam off and on to retry."))
+        }
+        watchdog = timer
+        timer.resume()
     }
 
-    /// Keeps the picture upright for whichever way round the phone sits in landscape.
-    private func apply(_ orientation: UIInterfaceOrientation) {
+    func forceKeyframe() { queue.async { [self] in encoder?.forceNextKeyframe() } }
+    func setOrientation(_ orientation: UIInterfaceOrientation) {
+        queue.async { [self] in
+            guard self.orientation != orientation else { return }
+            self.orientation = orientation
+            if requested { restart() }
+        }
+    }
+    private func applyOrientation() {
         guard let connection = output.connection(with: .video), connection.isVideoOrientationSupported else { return }
         connection.videoOrientation = orientation == .landscapeLeft ? .landscapeLeft : .landscapeRight
+        if connection.isVideoMirroringSupported { connection.isVideoMirrored = false }
     }
-
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)

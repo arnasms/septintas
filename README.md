@@ -174,3 +174,13 @@ existing polling intervals and stop-on-mode-exit behaviour are unchanged.
 
 `Tools/dashcheck` draws the phone's real dashboard to a PNG, and `Tools/shadercheck` renders the waiting screen and transitions frame by frame. Run `./scripts/check-dashboard.sh` to render the dashboard variants and check calendar capacity.
 Live mode swaps and widget swipes still need checking on the phone.
+
+Landscape layout checks in `check-dashboard.sh` cover SE (568×320), iPhone 7, Plus, mini, asymmetric left/right notches, and Max (932×430), with explicit safe-area insets. They assert slot containment, the original iPhone 7 frames, and unclipped waiting/welcome text after live resizing. PNGs in `build/widget-check` include widget combinations and music. Insets are injected only by the check harness; the app uses UIKit’s live safe area. Metal backgrounds are not captured by these layer renders. Physical-device rotation, notch/home-indicator behavior, swipe feel, and entrance/disconnect animations still need device checks.
+
+### Phone webcam controls
+
+Choose Front or Back in the Mac menu’s Webcam Camera submenu. The choice is saved on the Mac and sent again on reconnect; it does not turn the webcam on. The phone shows no webcam controls or status overlay. Switching cameras or landscape orientation restarts capture and H.264 with a fresh keyframe, without changing the wire protocol.
+
+Camera interruptions or startup failures may require turning webcam off and on from the Mac menu. Backgrounding or disconnecting stops capture.
+
+Device validation checklist: switch Front/Back repeatedly while a Mac camera client is open; rotate between landscape orientations; unplug during switching; background and reconnect; deny camera permission; interrupt capture with another camera user. Confirm the first picture after each switch decodes, the selected lens matches the picture, and capture stops on disconnect/background. These require physical-device testing.

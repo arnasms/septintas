@@ -25,4 +25,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         application.isIdleTimerDisabled = false
         controller.appWillResign()
     }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        controller.appEnteredBackground()
+    }
 }

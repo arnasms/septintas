@@ -22,6 +22,8 @@ enum MessageType: UInt8 {
     case modeData = 6
     /// Mac -> phone: exactly one byte, 0 allows Auto-Lock, 1 prevents it.
     case setSleepPrevention = 7
+    /// Mac -> phone: exactly one byte, 0 front, 1 back.
+    case setCameraPosition = 8
 }
 
 /// What the phone's screen is doing. The webcam runs independently of this.
