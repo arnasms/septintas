@@ -23,6 +23,7 @@
 		7795F617E6EC193C3E77AE59 /* CameraStreamer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56484A140A319119520E380C /* CameraStreamer.swift */; };
 		7FC431BC315AA17128D13093 /* SecondDisplayMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ABB14D4A75680813E3FD8D9 /* SecondDisplayMessage.swift */; };
 		85D7AA864C6380B7CA7BDE19 /* Wire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DCA5821342A70FD388DF2B1 /* Wire.swift */; };
+		9448D0481712D343DEC86D9D /* DashboardAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D54AAC8C02BF60B9C138F3 /* DashboardAccounts.swift */; };
 		96793D46C304489A9C0DEE06 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4B67760ADB82796E2AADE6A /* Assets.xcassets */; };
 		9E21A4588B32CBC6361EA62D /* VirtualDisplayShim.m in Sources */ = {isa = PBXBuildFile; fileRef = B1FC8FD725404CB30E4436EB /* VirtualDisplayShim.m */; };
 		A0C0717BE017A4D2CC24273B /* ScreenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25443A9BC056601E8C90BED6 /* ScreenPreferences.swift */; };
@@ -51,6 +52,7 @@
 
 /* Begin PBXFileReference section */
 		05E193F458B5692C33719B19 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
+		11D54AAC8C02BF60B9C138F3 /* DashboardAccounts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardAccounts.swift; sourceTree = "<group>"; };
 		13C5753740CECDA7EF3C51F4 /* VirtualDisplayShim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VirtualDisplayShim.h; sourceTree = "<group>"; };
 		17780D3959241D12F941D200 /* i7Mac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = i7Mac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1919D096F7E96190C29F21CA /* WireConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireConnection.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 				5D7F6C0F14C9F827DA453FA2 /* AppController.swift */,
 				CBFDF6F3415E8F30E940BE8D /* Assets.xcassets */,
 				FC50E3A72FDC8A80F94A4238 /* Bridging-Header.h */,
+				11D54AAC8C02BF60B9C138F3 /* DashboardAccounts.swift */,
 				6B83274356650CF0623133C4 /* DashboardMode.swift */,
 				1A7319F1FEB390BF16BF21D4 /* Info.plist */,
 				BBCF9D7759B633C012C8B69A /* main.swift */,
@@ -297,6 +300,7 @@
 				D524AD42A2D59A46C99E44A3 /* ArtworkPalette.swift in Sources */,
 				183633CB1E8C48ED55C9D09C /* CalendarLayout.swift in Sources */,
 				FDA2EFC0A1CD94059724040A /* Dashboard.swift in Sources */,
+				9448D0481712D343DEC86D9D /* DashboardAccounts.swift in Sources */,
 				1788ABAFD59F7071C2CF34E9 /* DashboardMode.swift in Sources */,
 				E960A2BA2396A4A261F88C98 /* H264Encoder.swift in Sources */,
 				B46A5878650668F6A6014524 /* Modes.swift in Sources */,

@@ -231,6 +231,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sizeItem.submenu = sizes
         menu.addItem(sizeItem)
 
+        let accountsItem = NSMenuItem(title: "Dashboard Accounts", action: nil, keyEquivalent: "")
+        let accounts = NSMenu()
+        let available = DashboardAccounts.available()
+        let picked = DashboardAccounts.selected(from: available)
+        let hint = NSMenuItem(title: "Pick two to show", action: nil, keyEquivalent: "")
+        hint.isEnabled = false
+        accounts.addItem(hint)
+        for account in available {
+            let item = NSMenuItem(title: account.menuTitle, action: #selector(pickAccount(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = account.id
+            item.state = picked.contains(account) ? .on : .off
+            accounts.addItem(item)
+        }
+        accountsItem.submenu = accounts
+        menu.addItem(accountsItem)
+
         if !CGPreflightScreenCaptureAccess() {
             let item = NSMenuItem(title: "Allow Screen Recording…", action: #selector(askScreenRecording), keyEquivalent: "")
             item.target = self
@@ -270,6 +287,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let raw = sender.representedObject as? String, let size = ScreenSize(rawValue: raw) else { return }
         ScreenSize.saved = size
         (mode as? SecondDisplayMacMode)?.changeSize(size)
+    }
+
+    @objc private func pickAccount(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, let account = DashboardAccount(id: id) else { return }
+        DashboardAccounts.toggle(account)
     }
 
     @objc private func askScreenRecording() {
