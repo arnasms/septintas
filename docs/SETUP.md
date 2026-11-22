@@ -28,7 +28,8 @@ open septintas in the foreground.
 
 Verify the USB connection, Extended Display, Dashboard and webcam as far as
 this hardware allows. Walk the user through selecting the OBS virtual camera in a
-camera app and turning the webcam off from the Mac menu afterwards. Distinguish
+camera app; quitting that app should turn the webcam off a few seconds later
+(the Mac menu can also turn it off). Distinguish
 what you actually verified from checks the user still needs to perform on the
 devices. Finish with the built app and IPA paths, what works, and any remaining
 blocker with the exact next step. Ask for manual actions as they become necessary,
