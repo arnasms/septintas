@@ -1,8 +1,9 @@
 # Dev integration testing
 
-All nine feature PRs are integrated into `dev`; `main` is unchanged. The microphone
-PR adds a feasibility report only. Integration resolves overlapping dashboard
-checks and camera/lifecycle code while retaining system-overlay connection behavior.
+Eight feature PRs are integrated into `dev`, on top of current `main` (including the
+dashboard account picker). The microphone feasibility report was left out. Integration
+resolves overlapping dashboard checks and camera/lifecycle code while retaining
+system-overlay connection behavior.
 CI now checks pushes to dev and runs setup, recovery and usage checks together.
 
 Before approving dev for main, install build/i7.ipa manually with TrollStore and run

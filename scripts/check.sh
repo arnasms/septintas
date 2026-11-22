@@ -17,5 +17,5 @@ swiftc Shared/*.swift Mac/VirtualCamera.swift Tools/fakephone/main.swift -o buil
 
 ./scripts/check-setup.sh
 ./scripts/check-connection-recovery.sh
-swiftc Shared/Dashboard.swift Mac/LimitsSource.swift Tools/limitscheck/main.swift -o build/checks/limitscheck
+swiftc Shared/Dashboard.swift Mac/LimitsSource.swift Mac/DashboardAccounts.swift Tools/limitscheck/main.swift -o build/checks/limitscheck
 build/checks/limitscheck

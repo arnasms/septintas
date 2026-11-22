@@ -17,6 +17,15 @@ enum UsageState: String, Codable {
     case available, sourceMissing, unavailable
 }
 
+/// One usage limit as CodexBar reports it, titled by its length ("5 hours", "Week", "Month").
+struct LimitWindow: Codable {
+    var title: String
+    var percent: Int
+    var resets: Date?
+    /// Length of the window. The phone shows a far-off reset as a date rather than a weekday.
+    var minutes: Int?
+}
+
 struct ProviderLimits: Codable {
     enum Provider: String, Codable { case claude, codex }
     var provider: Provider
@@ -28,6 +37,37 @@ struct ProviderLimits: Codable {
     var costMonth: Double
     /// True when the Mac has failed to refresh this for a while, and these are the last known numbers.
     var outOfDate: Bool
+    /// 0 = top card, 1 = bottom card. Older Macs leave it out: Claude goes on top, Codex below.
+    var slot: Int? = nil
+    /// Which account this is, shown after the provider name when both cards are the same provider.
+    var accountName: String? = nil
+    /// Cost comes from local logs that can't be split by account. With two cards of one provider,
+    /// the top card shows no cost and the bottom one shows the total for both.
+    var costShared: Bool? = nil
+    /// True when this account's usage has never loaded (for example its login expired). The card still
+    /// shows which account it is, with empty bars, instead of keeping whatever it showed before.
+    var unavailable: Bool? = nil
+    /// The account's limits, at most two, in CodexBar's order. Plans differ: Claude and paid Codex have a
+    /// 5-hour and a weekly limit, free Codex has a single monthly one. Older Macs leave this out and the
+    /// phone falls back to the session/week fields, which newer Macs still fill for older phones.
+    var windows: [LimitWindow]? = nil
+    /// When these numbers were fetched. Saved numbers are kept until their limits reset, so they can be old.
+    var updatedAt: Date? = nil
+    /// True when the Mac's latest try for this account failed and these are the last good numbers.
+    var stale: Bool? = nil
+    /// When the Mac will try again, sent while the numbers are stale or missing.
+    var nextUpdateAt: Date? = nil
+}
+
+extension ProviderLimits {
+    /// Reset times of this account's limits, from the windows when the Mac sent them.
+    var resetDates: [Date] { (windows?.map(\.resets) ?? [sessionResets, weekResets]).compactMap { $0 } }
+
+    /// Saved numbers stay useful until every limit they describe has reset.
+    func allLimitsReset(at now: Date = Date()) -> Bool {
+        let dates = resetDates
+        return !dates.isEmpty && dates.allSatisfy { $0 <= now }
+    }
 }
 
 struct TrackInfo: Codable, Equatable {

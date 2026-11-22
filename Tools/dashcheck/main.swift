@@ -65,6 +65,36 @@ render(DashboardUpdate(), to: output + "-clock-left.png")
 mode.previewWidgets(["calendar", "calendar"])
 render(DashboardUpdate(calendar: CalendarStatus(events: four, accessDenied: false)),
        to: output + "-duplicate-calendar.png")
+
+// Account picker cases: two accounts of one provider share one cost line below both cards; a plan with a
+// single monthly limit shows "Not applicable" for the 5-hour row; saved numbers show their age.
+mode.previewWidgets(["usage", "calendar"])
+func limits(_ provider: ProviderLimits.Provider, slot: Int, session: Int, week: Int, account: String? = nil,
+            costShared: Bool? = nil, cost: (Double, Double) = (0, 0)) -> ProviderLimits {
+    var value = ProviderLimits(provider: provider, sessionPercent: session, sessionResets: soon, weekPercent: week,
+                               weekResets: later, costToday: cost.0, costMonth: cost.1, outOfDate: false)
+    value.slot = slot
+    value.accountName = account
+    value.costShared = costShared
+    value.updatedAt = Date()
+    value.windows = [LimitWindow(title: "5 hours", percent: session, resets: soon, minutes: 300),
+                     LimitWindow(title: "Week", percent: week, resets: later, minutes: 10080)]
+    return value
+}
+var staleMain = limits(.claude, slot: 0, session: 34, week: 61, account: "main", costShared: true)
+staleMain.stale = true
+staleMain.updatedAt = Date().addingTimeInterval(-12 * 60)
+staleMain.nextUpdateAt = Date().addingTimeInterval(4 * 60)
+render(DashboardUpdate(limits: [
+    staleMain,
+    limits(.claude, slot: 1, session: 12, week: 27, account: "3", cost: (8.25, 1768.41)),
+]), to: output + "-accounts-shared.png")
+var freeCodex = limits(.codex, slot: 1, session: 0, week: 0, cost: (0, 8.85))
+freeCodex.windows = [LimitWindow(title: "Month", percent: 2, resets: Date().addingTimeInterval(24 * 86400), minutes: 43200)]
+render(DashboardUpdate(limits: [
+    limits(.claude, slot: 0, session: 8, week: 22, cost: (29.89, 1769.31)),
+    freeCodex,
+]), to: output + "-accounts-free-codex.png")
 mode.stop()
 
 // Exercise the same settle callback UIKit calls after a phone swipe, without synthesizing touch.
