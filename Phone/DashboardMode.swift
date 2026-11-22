@@ -168,8 +168,14 @@ private final class DashboardView: UIView {
     func setContentColorProgress(_ progress: CGFloat) { foreground.setProgress(progress, in: self) }
     private let limitsTile = UsageTile()
     private let rule = UIView()
-    private let claude = ProviderSection(provider: .claude, color: claudeColor, logoColor: claudeColor)
-    private let codex = ProviderSection(provider: .codex, color: codexColor, logoColor: .white)
+    /// Top and bottom cards. Which provider each shows comes from the Mac's account picker.
+    private let top = ProviderSection(provider: .claude)
+    private let bottom = ProviderSection(provider: .codex)
+    /// When both cards are one provider, its cost can't be split per account, so it sits once
+    /// below both cards under its own divider instead of inside either card.
+    private let sharedRule = UIView()
+    private let sharedCost = CostLine()
+    private var showsSharedCost = false
     private let playing = NowPlayingTile()
     private let calendarTile = CalendarTile()
 
@@ -179,9 +185,14 @@ private final class DashboardView: UIView {
         addSubview(content)
         rule.backgroundColor = ruleColor
         content.addSubview(limitsTile)
-        limitsTile.addSubview(claude)
+        limitsTile.addSubview(top)
         limitsTile.addSubview(rule)
-        limitsTile.addSubview(codex)
+        limitsTile.addSubview(bottom)
+        sharedRule.backgroundColor = ruleColor
+        limitsTile.addSubview(sharedRule)
+        limitsTile.addSubview(sharedCost)
+        sharedRule.isHidden = true
+        sharedCost.isHidden = true
         content.addSubview(playing)
         content.addSubview(calendarTile)
         playing.isHidden = true
@@ -202,11 +213,24 @@ private final class DashboardView: UIView {
         limitsTile.frame = CGRect(x: pad, y: pad, width: columnWidth, height: inner)
         let sectionInsetX: CGFloat = 16
         let sectionInsetY: CGFloat = 6
-        let sectionHeight = (inner - sectionInsetY * 2 - 1) / 2
         let sectionWidth = columnWidth - sectionInsetX * 2
-        claude.frame = CGRect(x: sectionInsetX, y: sectionInsetY, width: sectionWidth, height: sectionHeight)
+        let sectionHeight: CGFloat
+        if showsSharedCost {
+            // Cards without a cost row hold three items and four gaps each; the cost line below gets a gap
+            // on either side. Using one gap size everywhere keeps the cost line on the cards' rhythm, and
+            // the sections spread their own spare height into exactly this gap (see ProviderSection).
+            let free = inner - sectionInsetY * 2 - 2 - ProviderSection.contentHeight(withCost: false) * 2 - CostLine.height
+            let space = max(0, free / 10)
+            sectionHeight = ProviderSection.contentHeight(withCost: false) + space * 4
+            let ruleY = sectionInsetY + sectionHeight * 2 + 1
+            sharedRule.frame = CGRect(x: sectionInsetX, y: ruleY, width: sectionWidth, height: 1)
+            sharedCost.frame = CGRect(x: sectionInsetX, y: ruleY + 1 + space, width: sectionWidth, height: CostLine.height)
+        } else {
+            sectionHeight = (inner - sectionInsetY * 2 - 1) / 2
+        }
+        top.frame = CGRect(x: sectionInsetX, y: sectionInsetY, width: sectionWidth, height: sectionHeight)
         rule.frame = CGRect(x: sectionInsetX, y: sectionInsetY + sectionHeight, width: sectionWidth, height: 1)
-        codex.frame = CGRect(x: sectionInsetX, y: sectionInsetY + sectionHeight + 1, width: sectionWidth, height: sectionHeight)
+        bottom.frame = CGRect(x: sectionInsetX, y: sectionInsetY + sectionHeight + 1, width: sectionWidth, height: sectionHeight)
 
         let rightX = pad + columnWidth + gap
         let playingHeight: CGFloat = 105
@@ -265,8 +289,8 @@ private final class DashboardView: UIView {
         foreground.setProgress(1, in: self)
         calendarTile.tick()
         playing.tick()
-        claude.tick()
-        codex.tick()
+        top.tick()
+        bottom.tick()
         foreground.setProgress(phase, in: self)
     }
 
@@ -305,8 +329,32 @@ private final class DashboardView: UIView {
     func apply(_ update: DashboardUpdate) {
         let phase = foreground.progress
         foreground.setProgress(1, in: self)
+        var filled = Set<Int>()
         for limits in update.limits ?? [] {
-            (limits.provider == .claude ? claude : codex).apply(limits)
+            // Messages from before the account picker have no slot: Claude on top, Codex below.
+            let slot = limits.slot ?? (limits.provider == .claude ? 0 : 1)
+            (slot == 0 ? top : bottom).apply(limits)
+            filled.insert(slot)
+        }
+        if let limits = update.limits, !limits.isEmpty, limits.allSatisfy({ $0.slot != nil }) {
+            // The Mac sends every picked account each time, so a card it left out isn't picked any more
+            // (only one account is ticked). Hide it rather than keep showing the old account.
+            top.isHidden = !filled.contains(0)
+            bottom.isHidden = !filled.contains(1)
+            rule.isHidden = top.isHidden || bottom.isHidden
+        }
+        if let limits = update.limits, !limits.isEmpty {
+            // accountName is only sent when both cards are the same provider: the case where cost can't be split.
+            let shared = limits.contains { $0.accountName != nil }
+            if shared, let source = limits.first(where: { $0.costShared != true }) {
+                sharedCost.set(today: source.costToday, month: source.costMonth)
+            }
+            if shared != showsSharedCost {
+                showsSharedCost = shared
+                sharedRule.isHidden = !shared
+                sharedCost.isHidden = !shared
+                setNeedsLayout()
+            }
         }
         if let art = update.art { playing.setArt(art) }
         if let track = update.track {
@@ -326,79 +374,220 @@ private final class DashboardView: UIView {
 private final class ProviderSection: UIView {
     private let logo = CAShapeLayer()
     private let name = UILabel()
-    private let warning = label(size: 13, color: secondaryText)
+    /// How old the numbers are and when the Mac tries again, shown only when they aren't current.
+    private let warning = label(size: 12, color: secondaryText)
     private let session: LimitRow
     private let week: LimitRow
-    private let today = label(size: 15, color: secondaryText)
-    private let month = label(size: 15, color: secondaryText)
+    private let cost = CostLine()
+    private var showsCost = true
     private var limits: ProviderLimits?
+    private var shownProvider: ProviderLimits.Provider?
+    private var shownAccount: String?
 
-    init(provider: ProviderLimits.Provider, color: UIColor, logoColor: UIColor) {
-        session = LimitRow(title: "5 hours", color: color)
-        week = LimitRow(title: "Week", color: color)
+    init(provider: ProviderLimits.Provider) {
+        session = LimitRow(title: "5 hours", color: claudeColor)
+        week = LimitRow(title: "Week", color: claudeColor)
         super.init(frame: .zero)
-        logo.path = ProviderLogos.path(for: provider, size: 26)
-        logo.fillColor = logoColor.cgColor
         layer.addSublayer(logo)
-        name.text = provider == .claude ? "Claude" : "Codex"
         name.font = .systemFont(ofSize: 24, weight: .semibold)
         name.textColor = .white
+        name.lineBreakMode = .byTruncatingTail
+        show(provider: provider, account: nil)
         warning.textAlignment = .right
+        warning.numberOfLines = 2
         warning.text = ""
-        for view in [name, warning, session, week, today, month] { addSubview(view) }
-        month.textAlignment = .right
-        today.attributedText = Self.cost(nil, "today")
-        month.attributedText = Self.cost(nil, "this month")
+        for view in [name, warning, session, week, cost] { addSubview(view) }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Logo, colours and name for whichever provider and account this card currently shows.
+    private func show(provider: ProviderLimits.Provider, account: String?) {
+        guard provider != shownProvider || account != shownAccount else { return }
+        shownProvider = provider
+        shownAccount = account
+        let color = provider == .claude ? claudeColor : codexColor
+        logo.path = ProviderLogos.path(for: provider, size: 26)
+        logo.fillColor = (provider == .claude ? claudeColor : UIColor.white).cgColor
+        session.setColor(color)
+        week.setColor(color)
+        let text = NSMutableAttributedString(string: provider == .claude ? "Claude" : "Codex")
+        if let account, !account.isEmpty {
+            text.append(NSAttributedString(string: " " + account, attributes: [
+                .foregroundColor: secondaryText,
+                .font: UIFont.systemFont(ofSize: 24, weight: .regular),
+            ]))
+        }
+        name.attributedText = text
+    }
+
     func apply(_ value: ProviderLimits) {
         limits = value
-        today.attributedText = Self.cost(value.costToday, "today")
-        month.attributedText = Self.cost(value.costMonth, "this month")
-        warning.text = value.outOfDate ? "Out of date" : ""
+        show(provider: value.provider, account: value.accountName)
+        // With both cards on one provider (accountName set) the cost covers both accounts, so the
+        // dashboard shows it once below the cards instead.
+        showsCost = value.accountName == nil && value.costShared != true
+        cost.isHidden = !showsCost
+        cost.set(today: value.costToday, month: value.costMonth)
+        setNeedsLayout()
         tick()
     }
 
     /// Runs every second, so a reset changing from a weekday to a time happens by itself at midnight.
     func tick() {
         guard let limits else { return }
-        session.set(percent: limits.sessionPercent, when: limits.sessionResets.map { formatted($0, "h:mm a") })
-        week.set(percent: limits.weekPercent, when: limits.weekResets.map(Self.weekReset))
+        let now = Date()
+        let status = Self.status(limits, now: now)
+        if warning.text != status {
+            warning.text = status
+            setNeedsLayout()
+        }
+        let windows: [LimitWindow?]
+        if limits.unavailable == true {
+            windows = [nil, nil]
+        } else {
+            windows = limits.windows ?? [
+                LimitWindow(title: "5 hours", percent: limits.sessionPercent, resets: limits.sessionResets, minutes: 300),
+                LimitWindow(title: "Week", percent: limits.weekPercent, resets: limits.weekResets, minutes: 10080),
+            ]
+        }
+        // Every card keeps a 5-hour row and a longer one so the cards line up. A plan with a single limit
+        // (free Codex has only a monthly one) shows the slot it lacks as "Not applicable".
+        var rows: [(title: String, window: LimitWindow?, applies: Bool)]
+        if windows.count == 1, let only = windows[0] {
+            rows = (only.minutes ?? 0) < 1440
+                ? [(only.title, only, true), ("Week", nil, false)]
+                : [("5 hours", nil, false), (only.title, only, true)]
+        } else {
+            rows = [("5 hours", nil, true), ("Week", nil, true)]
+            for (index, window) in windows.prefix(2).enumerated() { rows[index] = (window?.title ?? rows[index].title, window, true) }
+        }
+        for (row, info) in zip([session, week], rows) {
+            row.setTitle(info.title)
+            if !info.applies {
+                row.setNotApplicable()
+            } else if let window = info.window, !(window.resets.map { $0 <= now } ?? false) {
+                row.set(percent: window.percent, when: window.resets.map { Self.reset($0, minutes: window.minutes) })
+            } else {
+                row.set(percent: nil, when: nil)
+            }
+        }
     }
 
-    private static func weekReset(_ date: Date) -> String {
-        Calendar.current.isDateInToday(date) ? formatted(date, "h:mm a") : formatted(date, "EEEE")
+    /// Two short lines for the header: how old the numbers are, then when the Mac tries again.
+    /// Empty while the numbers are current.
+    private static func status(_ limits: ProviderLimits, now: Date) -> String {
+        var lines: [String] = []
+        if limits.unavailable == true {
+            lines.append("No data")
+        } else if let updated = limits.updatedAt {
+            let age = now.timeIntervalSince(updated)
+            // Not stale but old means the Mac stopped sending (unplugged), so show the age then too.
+            if limits.stale == true || age > 300 { lines.append("Data \(Self.age(age)) old") }
+        } else if limits.outOfDate {
+            lines.append("Out of date")
+        }
+        // Once that time has passed the Mac is either trying now or not connected, so there is nothing to promise.
+        if !lines.isEmpty, let next = limits.nextUpdateAt, next > now {
+            lines.append("Updates in \(max(1, Int((next.timeIntervalSince(now) / 60).rounded(.up)))) min")
+        }
+        return lines.joined(separator: "\n")
     }
 
-    private static func cost(_ value: Double?, _ words: String) -> NSAttributedString {
+    private static func age(_ seconds: TimeInterval) -> String {
+        let minutes = max(1, Int(seconds / 60))
+        if minutes < 60 { return "\(minutes) min" }
+        if minutes < 1440 { return "\(minutes / 60) h" }
+        return "\(minutes / 1440) d"
+    }
+
+    /// Short windows reset at a time; within the next week a weekday is clear; further off needs a date.
+    private static func reset(_ date: Date, minutes: Int?) -> String {
+        if (minutes ?? 0) < 1440 || Calendar.current.isDateInToday(date) { return formatted(date, "h:mm a") }
+        return date.timeIntervalSinceNow < 6 * 86400 ? formatted(date, "EEEE") : formatted(date, "MMM d")
+    }
+
+    static let headerHeight: CGFloat = 28
+
+    static func contentHeight(withCost: Bool) -> CGFloat {
+        headerHeight + LimitRow.height * 2 + (withCost ? CostLine.height : 0)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let width = bounds.width
+        let headerHeight = Self.headerHeight
+        let rowHeight = LimitRow.height
+        // N items, N + 1 equal gaps: the spare height is shared out with no dead band anywhere.
+        let rows = [session, week]
+        let items = 1 + rows.count + (showsCost ? 1 : 0)
+        let used = headerHeight + rowHeight * CGFloat(rows.count) + (showsCost ? CostLine.height : 0)
+        let space = max(0, bounds.height - used) / CGFloat(items + 1)
+        var y = space
+        logo.frame = CGRect(x: 0, y: y + 1, width: 26, height: 26)
+        // The name can carry an account ("Claude main"), so it gets the width the warning doesn't need.
+        let warningWidth: CGFloat = warning.text?.isEmpty == false
+            ? min(150, ceil(warning.sizeThatFits(CGSize(width: 200, height: headerHeight)).width)) : 0
+        let warningGap: CGFloat = warningWidth > 0 ? 8 : 0
+        name.frame = CGRect(x: 33, y: y, width: width - 33 - warningWidth - warningGap, height: headerHeight)
+        // Two 12pt lines run a little taller than the 28pt header, so the box overhangs it evenly.
+        warning.frame = CGRect(x: width - warningWidth, y: y - 3, width: warningWidth, height: headerHeight + 6)
+        y += headerHeight + space
+        for row in rows {
+            row.frame = CGRect(x: 0, y: y, width: width, height: rowHeight)
+            y += rowHeight + space
+        }
+        cost.frame = CGRect(x: 0, y: y, width: width, height: CostLine.height)
+    }
+}
+
+/// "$X today" on the left, "$Y this month" on the right. Each side gets the width its text needs
+/// rather than half the line, and both shrink slightly only if together they really don't fit.
+private final class CostLine: UIView {
+    static let height: CGFloat = 19
+
+    private let today = label(size: 15, color: secondaryText)
+    private let month = label(size: 15, color: secondaryText)
+
+    init() {
+        super.init(frame: .zero)
+        month.textAlignment = .right
+        for view in [today, month] {
+            view.adjustsFontSizeToFitWidth = true
+            view.minimumScaleFactor = 0.75
+            addSubview(view)
+        }
+        set(today: nil, month: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func set(today todayValue: Double?, month monthValue: Double?) {
+        today.attributedText = Self.text(todayValue, "today")
+        month.attributedText = Self.text(monthValue, "this month")
+        setNeedsLayout()
+    }
+
+    private static func text(_ value: Double?, _ words: String) -> NSAttributedString {
+        // The font is set here too so measuring the text in layoutSubviews matches what the label draws.
+        let font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .regular)
         let number = value.map { String(format: "$%.2f", $0) } ?? "–"
-        let text = NSMutableAttributedString(string: number, attributes: [.foregroundColor: UIColor.white])
-        text.append(NSAttributedString(string: " " + words, attributes: [.foregroundColor: secondaryText]))
+        let text = NSMutableAttributedString(string: number, attributes: [.foregroundColor: UIColor.white, .font: font])
+        text.append(NSAttributedString(string: " " + words, attributes: [.foregroundColor: secondaryText, .font: font]))
         return text
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let width = bounds.width
-        let headerHeight: CGFloat = 28
-        let rowHeight = LimitRow.height
-        let costHeight: CGFloat = 19
-        // Four items, so five equal gaps: the spare height is shared out with no dead band anywhere.
-        let spare = max(0, bounds.height - headerHeight - rowHeight * 2 - costHeight)
-        let space = spare / 5
-        var y = space
-        logo.frame = CGRect(x: 0, y: y + 1, width: 26, height: 26)
-        name.frame = CGRect(x: 33, y: y, width: 120, height: headerHeight)
-        warning.frame = CGRect(x: 153, y: y, width: width - 153, height: headerHeight)
-        y += headerHeight + space
-        session.frame = CGRect(x: 0, y: y, width: width, height: rowHeight)
-        y += rowHeight + space
-        week.frame = CGRect(x: 0, y: y, width: width, height: rowHeight)
-        y += rowHeight + space
-        today.frame = CGRect(x: 0, y: y, width: width / 2, height: costHeight)
-        month.frame = CGRect(x: width / 2, y: y, width: width / 2, height: costHeight)
+        let minGap: CGFloat = 12
+        let todayWidth = ceil(today.attributedText?.size().width ?? 0)
+        let monthWidth = ceil(month.attributedText?.size().width ?? 0)
+        let needed = todayWidth + minGap + monthWidth
+        // Too long together: split the line in proportion to each text, and the labels shrink to fit.
+        let leftWidth = needed <= width ? todayWidth : (width - minGap) * todayWidth / max(1, todayWidth + monthWidth)
+        today.frame = CGRect(x: 0, y: 0, width: leftWidth, height: bounds.height)
+        month.frame = CGRect(x: leftWidth + minGap, y: 0, width: max(0, width - leftWidth - minGap), height: bounds.height)
     }
 }
 
@@ -410,6 +599,16 @@ private final class LimitRow: UIView {
     private let track = UIView()
     private let fill = UIView()
     private var percent = 0
+
+    func setColor(_ color: UIColor) { fill.backgroundColor = color }
+    func setTitle(_ text: String) { if title.text != text { title.text = text } }
+
+    /// For a limit this plan doesn't have: an empty bar, and words instead of a number.
+    func setNotApplicable() {
+        percent = 0
+        value.attributedText = NSAttributedString(string: "Not applicable", attributes: [.foregroundColor: secondaryText])
+        setNeedsLayout()
+    }
 
     init(title text: String, color: UIColor) {
         super.init(frame: .zero)
@@ -427,9 +626,11 @@ private final class LimitRow: UIView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func set(percent newPercent: Int, when: String?) {
-        percent = max(0, min(100, newPercent))
-        let text = NSMutableAttributedString(string: "\(percent)%", attributes: [.foregroundColor: UIColor.white])
+    /// A nil percent means no data: an empty bar and a dash.
+    func set(percent newPercent: Int?, when: String?) {
+        percent = max(0, min(100, newPercent ?? 0))
+        let number = newPercent == nil ? "–" : "\(percent)%"
+        let text = NSMutableAttributedString(string: number, attributes: [.foregroundColor: UIColor.white])
         if let when {
             text.append(NSAttributedString(string: " · " + when, attributes: [.foregroundColor: secondaryText]))
         }
