@@ -78,7 +78,10 @@ Very appreciated PRs would be:
 I'm happy with the functionality as is, but widgets are modular, so you can add your own.
 
 ### Donations
-Would go towards an Apple Developer Account and would let the project 1) not require workarounds with signing 2) have its own webcam profile independent of OBS 3) maybe even see the light of day on the App Store
+Would go towards an Apple Developer account ($99/year), which would let the project:
+1. ship a signed Mac app you can just download, instead of building and self-signing it yourself
+2. have its own webcam instead of borrowing OBS's
+3. get the phone app onto the App Store, so it works without TrollStore
 
 ## How it works
 
