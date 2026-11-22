@@ -60,7 +60,7 @@ Mac menu bar app (Mac/)                          iPhone app (Phone/)
 ```
 
 - **USB link:** the phone listens on a port, and the Mac reaches it through usbmuxd. No Wi-Fi involved.
-- **Webcam on/off:** it turns on the moment an app opens the camera. macOS only reports "in use", and our own feed counts as use, so the Mac can't tell when that app closes it. Turn it off from the menu; it also stops when the Mac sleeps.
+- **Webcam on/off:** it turns on the moment an app opens the camera, and off a few seconds after the last app closes it. macOS counts our own feed as using the camera, so the Mac learns when apps let go from the line Control Center logs for its camera indicator. Reading that line needs an admin account, and a macOS update could change it; then the webcam stays on until you turn it off from the menu. It also stops when the Mac sleeps.
 - **Dashboard data:** the Mac gathers it in `Mac/DashboardMode.swift` and sends only what changed. The phone saves the last limits and calendar, so the mode can appear before fresh numbers arrive.
 - **Now Playing:** runs `Helpers/NowPlaying` inside `/usr/bin/perl`, because macOS gives plain apps nothing.
 
@@ -78,13 +78,7 @@ Builds the Mac app and signs it with a local certificate, so macOS keeps the Scr
 ./scripts/build-phone.sh
 ```
 
-Makes `build/i7.ipa`, without needing Xcode's iOS platform download. Install it with TrollStore.
-
-```bash
-./scripts/push-phone.sh
-```
-
-Builds the phone app and installs it over the cable, through the copy already on the phone. This needs **URL Scheme Enabled** on in TrollStore's settings. TrollStore stays in front afterwards, so reopen the app by hand.
+Makes `build/i7.ipa`, without needing Xcode's iOS platform download. Install it with TrollStore, and install newer builds the same way to update.
 
 ## Automating iPhone sleep prevention
 

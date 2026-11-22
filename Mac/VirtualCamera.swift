@@ -18,6 +18,13 @@ final class VirtualCamera {
 
     var isAvailable: Bool { findDevice() != nil }
 
+    /// The camera's unique ID, as Control Center's camera log names it.
+    var uniqueID: String? {
+        guard let device = findDevice() else { return nil }
+        let id = Self.string(of: device, kCMIODevicePropertyDeviceUID)
+        return id.isEmpty ? nil : id
+    }
+
     /// True when anything has the camera open, including us. So it only means "an app wants the
     /// camera" while our own feed is stopped.
     var isInUse: Bool {
@@ -121,7 +128,11 @@ final class VirtualCamera {
     }
 
     private static func name(of object: CMIOObjectID) -> String {
-        var address = address(kCMIOObjectPropertyName)
+        string(of: object, kCMIOObjectPropertyName)
+    }
+
+    private static func string(of object: CMIOObjectID, _ selector: Int) -> String {
+        var address = address(selector)
         var used: UInt32 = 0
         var value: Unmanaged<CFString>?
         let status = withUnsafeMutablePointer(to: &value) {

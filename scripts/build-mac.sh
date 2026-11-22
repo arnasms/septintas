@@ -32,5 +32,8 @@ clang -dynamiclib -fobjc-arc -arch arm64 -arch x86_64 -framework Foundation \
     Helpers/NowPlaying/now-playing.m -o "$APP/Contents/Resources/now-playing.dylib"
 codesign --force --sign "$CERT" "$APP/Contents/Resources/now-playing.dylib"
 
-codesign --force --sign "$CERT" --identifier com.arnasmasalis.i7companion.mac "$APP"
+# Hardened runtime stops other programs from loading their code into the app and borrowing its
+# Screen Recording and Calendar permissions. Calendar access then has to be declared in the entitlements.
+codesign --force --options runtime --entitlements Mac/septintas.entitlements \
+    --sign "$CERT" --identifier com.arnasmasalis.i7companion.mac "$APP"
 codesign --verify "$APP" && echo "signed $(pwd)/$APP"

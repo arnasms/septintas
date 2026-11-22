@@ -22,15 +22,14 @@ Launch the built Mac app. Guide the user through any signing/keychain prompts an
 required macOS permissions, including Screen Recording, and phone permissions
 when prompted. Never disable system security or grant permissions on their behalf.
 
-Help the user install build/i7.ipa with TrollStore for the first installation.
-./scripts/push-phone.sh is only for updates when septintas is already running
-on the phone and TrollStore's URL Scheme Enabled setting is on. Have the user
-connect the phone by USB, trust the Mac if prompted, and open septintas in the
-foreground.
+Help the user install build/i7.ipa with TrollStore; updates are installed the
+same way. Have the user connect the phone by USB, trust the Mac if prompted, and
+open septintas in the foreground.
 
 Verify the USB connection, Extended Display, Dashboard and webcam as far as
 this hardware allows. Walk the user through selecting the OBS virtual camera in a
-camera app and turning the webcam off from the Mac menu afterwards. Distinguish
+camera app; quitting that app should turn the webcam off a few seconds later
+(the Mac menu can also turn it off). Distinguish
 what you actually verified from checks the user still needs to perform on the
 devices. Finish with the built app and IPA paths, what works, and any remaining
 blocker with the exact next step. Ask for manual actions as they become necessary,

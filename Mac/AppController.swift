@@ -27,6 +27,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// You turned the webcam off while an app still has it open, so don't turn it straight back on.
     private var cameraHeldOff = false
     private var cameraLastInUse = Date.distantPast
+    /// Tells when the last app stops watching, so the webcam can turn itself off.
+    private let viewers = CameraViewers()
+    /// Whether Control Center last listed an app watching the OBS camera; nil until it has said anything.
+    private var cameraWatched: Bool?
+    /// An app has been seen watching since the webcam turned on. Turning off only follows an app
+    /// letting go, so a client Control Center never lists keeps the webcam on as before.
+    private var cameraHadViewer = false
+    private var autoOff: DispatchWorkItem?
     private var loggedWebcamFrame = false
     /// An app holding the camera shouldn't turn the webcam straight back on as the Mac goes to sleep.
     private var asleep = false
@@ -91,6 +99,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // macOS reports the camera being opened right away. The timer picks up a camera that
         // appears after launch, and anything the report misses.
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.checkCameraDemand() }
+        viewers.onChange = { [weak self] cameras in self?.viewersChanged(cameras) }
+        viewers.start()
 
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
@@ -107,6 +117,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        viewers.stop()
         camera.stop()
         mode?.stop()
     }
@@ -185,8 +196,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if camera.isInUse {
             cameraLastInUse = Date()
             if !cameraHeldOff {
-                // This also catches apps that open a camera for a moment just to look at it. Since the
-                // webcam can't tell when an app lets go, the phone's camera stays on until it's turned off.
+                // This also catches apps that open a camera for a moment just to look at it. Our own
+                // feed keeps the camera "in use", so turning off follows Control Center instead.
                 setCamera(true)
             }
         } else if Date().timeIntervalSince(cameraLastInUse) >= 2 {
@@ -202,13 +213,47 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if on {
             guard connection != nil, camera.start() else { return }
             cameraOn = true
+            // Control Center may already have listed the app that opened the camera.
+            cameraHadViewer = cameraWatched == true
             connection?.send(.setCamera, Data([1]))
         } else {
             cameraOn = false
+            cameraHadViewer = false
+            autoOff?.cancel()
+            autoOff = nil
             connection?.send(.setCamera, Data([0]))
             camera.stop()
             decoder.reset()
         }
+    }
+
+    private func viewersChanged(_ cameras: Set<String>) {
+        guard let id = camera.uniqueID else { return }
+        cameraWatched = cameras.contains(id)
+        if cameraWatched == true, cameraOn { cameraHadViewer = true }
+        considerAutoOff()
+    }
+
+    /// Turns the webcam off a few seconds after the last app watching it lets go. The wait covers an
+    /// app reopening the camera, or one app handing over to another.
+    private func considerAutoOff() {
+        guard cameraOn, cameraHadViewer, cameraWatched == false else {
+            autoOff?.cancel()
+            autoOff = nil
+            return
+        }
+        guard autoOff == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.autoOff = nil
+            guard self.cameraOn, self.cameraHadViewer, self.cameraWatched == false else { return }
+            NSLog("i7: no app is watching the webcam any more")
+            self.setCamera(false)
+            // Our own feed can count as "in use" for a moment after it stops; don't turn back on for that.
+            self.cameraHeldOff = true
+        }
+        autoOff = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
     }
 
     /// Keep the app identity stable; webcam state is shown in the menu.

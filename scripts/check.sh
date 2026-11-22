@@ -13,6 +13,8 @@ build/checks/preferencescheck "$suite" write
 build/checks/preferencescheck "$suite" read
 build/checks/preferencescheck "$suite" migrate
 swiftc Shared/*.swift Mac/VirtualCamera.swift Tools/fakephone/main.swift -o build/checks/fakephone
+swiftc Mac/CameraViewers.swift Tools/viewerscheck/main.swift -o build/checks/viewerscheck
+build/checks/viewerscheck
 # UIKit rendering and Metal GPU checks require a simulator/device or GPU and run separately.
 
 ./scripts/check-setup.sh
