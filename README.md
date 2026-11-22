@@ -78,13 +78,7 @@ Builds the Mac app and signs it with a local certificate, so macOS keeps the Scr
 ./scripts/build-phone.sh
 ```
 
-Makes `build/i7.ipa`, without needing Xcode's iOS platform download. Install it with TrollStore.
-
-```bash
-./scripts/push-phone.sh
-```
-
-Builds the phone app and installs it over the cable, through the copy already on the phone. This needs **URL Scheme Enabled** on in TrollStore's settings. TrollStore stays in front afterwards, so reopen the app by hand.
+Makes `build/i7.ipa`, without needing Xcode's iOS platform download. Install it with TrollStore, and install newer builds the same way to update.
 
 ## Automating iPhone sleep prevention
 

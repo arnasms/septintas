@@ -12,7 +12,6 @@
 		10B7EC786C1EF3CE0E4A751D /* Wire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DCA5821342A70FD388DF2B1 /* Wire.swift */; };
 		1788ABAFD59F7071C2CF34E9 /* DashboardMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B83274356650CF0623133C4 /* DashboardMode.swift */; };
 		183633CB1E8C48ED55C9D09C /* CalendarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4AB5901CBFC5E8BF11DA42 /* CalendarLayout.swift */; };
-		251379C4CA0F2CA4690264EC /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6864BC60DD1ACE5C724CC28 /* Updater.swift */; };
 		2E4794009DDB91D9AE173D3F /* DashboardMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7022ECE22097271E2B6DADE8 /* DashboardMode.swift */; };
 		32BCDF80C17898E007489FF6 /* Dashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44DCE942A37C9F3027A2E529 /* Dashboard.swift */; };
 		33E216A2DA905C736B4AE342 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBFDF6F3415E8F30E940BE8D /* Assets.xcassets */; };
@@ -28,14 +27,12 @@
 		96793D46C304489A9C0DEE06 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4B67760ADB82796E2AADE6A /* Assets.xcassets */; };
 		9E21A4588B32CBC6361EA62D /* VirtualDisplayShim.m in Sources */ = {isa = PBXBuildFile; fileRef = B1FC8FD725404CB30E4436EB /* VirtualDisplayShim.m */; };
 		A0C0717BE017A4D2CC24273B /* ScreenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25443A9BC056601E8C90BED6 /* ScreenPreferences.swift */; };
-		A19C0518F1154D445EFAF37A /* UpdatePush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18995010EDE1D0078130758 /* UpdatePush.swift */; };
 		A90FC07A068E118FA2E8D7BF /* RootViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F110F649B690B41D714DEF /* RootViewController.swift */; };
 		AB43C7EE762A1C146D9A3809 /* ProviderLogos.swift in Sources */ = {isa = PBXBuildFile; fileRef = C83652A5CC56FFCB5F232DC1 /* ProviderLogos.swift */; };
 		B0A271D1AF731881C6963A15 /* CalendarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4AB5901CBFC5E8BF11DA42 /* CalendarLayout.swift */; };
 		B46A5878650668F6A6014524 /* Modes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD77A6B5DB07F896D98E441 /* Modes.swift */; };
 		BCC85E175689472E81734403 /* WireConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1919D096F7E96190C29F21CA /* WireConnection.swift */; };
 		CB4FB150848FB323379D7E2D /* CalendarSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21148F54FD936350370FDE7 /* CalendarSetup.swift */; };
-		CC9D32A6A6EB847A48D39543 /* UpdatePush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18995010EDE1D0078130758 /* UpdatePush.swift */; };
 		CE1D877C8D65CB723E1F5F77 /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D7F6C0F14C9F827DA453FA2 /* AppController.swift */; };
 		D30AB942E918AADCFECFB7F1 /* WaitingShader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98572BD1F16ACD26342E4439 /* WaitingShader.swift */; };
 		D44FC6D4674C3E661A804D5C /* VirtualCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58A89D7EE805EE6A113FDE4F /* VirtualCamera.swift */; };
@@ -80,10 +77,8 @@
 		9541F9DC3C5DDDEA3EC03E5A /* WaitingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingView.swift; sourceTree = "<group>"; };
 		98572BD1F16ACD26342E4439 /* WaitingShader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingShader.swift; sourceTree = "<group>"; };
 		A4B67760ADB82796E2AADE6A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A6864BC60DD1ACE5C724CC28 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		A9C37ACF8501CE50F6D12ACA /* PhoneServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneServer.swift; sourceTree = "<group>"; };
 		AFD77A6B5DB07F896D98E441 /* Modes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modes.swift; sourceTree = "<group>"; };
-		B18995010EDE1D0078130758 /* UpdatePush.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePush.swift; sourceTree = "<group>"; };
 		B1FC8FD725404CB30E4436EB /* VirtualDisplayShim.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = VirtualDisplayShim.m; sourceTree = "<group>"; };
 		BBCF9D7759B633C012C8B69A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C83652A5CC56FFCB5F232DC1 /* ProviderLogos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderLogos.swift; sourceTree = "<group>"; };
@@ -145,7 +140,6 @@
 				44DCE942A37C9F3027A2E529 /* Dashboard.swift */,
 				05E193F458B5692C33719B19 /* H264Encoder.swift */,
 				2ABB14D4A75680813E3FD8D9 /* SecondDisplayMessage.swift */,
-				B18995010EDE1D0078130758 /* UpdatePush.swift */,
 				2C441ECE8733E988C90A1F40 /* VideoPacket.swift */,
 				6DCA5821342A70FD388DF2B1 /* Wire.swift */,
 				1919D096F7E96190C29F21CA /* WireConnection.swift */,
@@ -167,7 +161,6 @@
 				A9C37ACF8501CE50F6D12ACA /* PhoneServer.swift */,
 				C83652A5CC56FFCB5F232DC1 /* ProviderLogos.swift */,
 				E9F110F649B690B41D714DEF /* RootViewController.swift */,
-				A6864BC60DD1ACE5C724CC28 /* Updater.swift */,
 				98572BD1F16ACD26342E4439 /* WaitingShader.swift */,
 				9541F9DC3C5DDDEA3EC03E5A /* WaitingView.swift */,
 			);
@@ -288,8 +281,6 @@
 				AB43C7EE762A1C146D9A3809 /* ProviderLogos.swift in Sources */,
 				A90FC07A068E118FA2E8D7BF /* RootViewController.swift in Sources */,
 				7374D162E1F2D91170D69754 /* SecondDisplayMessage.swift in Sources */,
-				A19C0518F1154D445EFAF37A /* UpdatePush.swift in Sources */,
-				251379C4CA0F2CA4690264EC /* Updater.swift in Sources */,
 				D901BB7A317761957E0432B1 /* VideoPacket.swift in Sources */,
 				D30AB942E918AADCFECFB7F1 /* WaitingShader.swift in Sources */,
 				D64FED5DF9FAC3F707020A78 /* WaitingView.swift in Sources */,
@@ -314,7 +305,6 @@
 				B46A5878650668F6A6014524 /* Modes.swift in Sources */,
 				A0C0717BE017A4D2CC24273B /* ScreenPreferences.swift in Sources */,
 				7FC431BC315AA17128D13093 /* SecondDisplayMessage.swift in Sources */,
-				CC9D32A6A6EB847A48D39543 /* UpdatePush.swift in Sources */,
 				EC039CBEE699CA037D3AB90B /* UsbMux.swift in Sources */,
 				3B6758C276F3DD1897A13254 /* VideoPacket.swift in Sources */,
 				D44FC6D4674C3E661A804D5C /* VirtualCamera.swift in Sources */,

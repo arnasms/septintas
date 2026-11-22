@@ -4,7 +4,6 @@ import UIKit
 final class RootViewController: UIViewController {
     private let server = PhoneServer()
     private let camera = CameraStreamer()
-    private let updater = Updater()
     private var connection: WireConnection?
     private var mode: PhoneMode?
     private let waiting = WaitingView()
@@ -47,7 +46,6 @@ final class RootViewController: UIViewController {
 
 
         server.onConnection = { [weak self] connection in self?.attach(connection) }
-        updater.start()
     }
 
     override func viewDidAppear(_ animated: Bool) {
