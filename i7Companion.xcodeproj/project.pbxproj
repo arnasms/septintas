@@ -83,6 +83,7 @@
 		BBCF9D7759B633C012C8B69A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		C83652A5CC56FFCB5F232DC1 /* ProviderLogos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderLogos.swift; sourceTree = "<group>"; };
 		CBFDF6F3415E8F30E940BE8D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D1BD85B61A3847C245EA6328 /* septintas.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = septintas.entitlements; sourceTree = "<group>"; };
 		E38CA57E86ACBB6381EAEAE8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E62A08A593560D5BD160C6A6 /* Modes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modes.swift; sourceTree = "<group>"; };
 		E9F110F649B690B41D714DEF /* RootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewController.swift; sourceTree = "<group>"; };
@@ -105,6 +106,7 @@
 				BBCF9D7759B633C012C8B69A /* main.swift */,
 				AFD77A6B5DB07F896D98E441 /* Modes.swift */,
 				25443A9BC056601E8C90BED6 /* ScreenPreferences.swift */,
+				D1BD85B61A3847C245EA6328 /* septintas.entitlements */,
 				89E3A9FDEC12FE567AEC4EF2 /* UsbMux.swift */,
 				58A89D7EE805EE6A113FDE4F /* VirtualCamera.swift */,
 				13C5753740CECDA7EF3C51F4 /* VirtualDisplayShim.h */,
@@ -441,11 +443,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Mac/septintas.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Mac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -482,11 +485,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Mac/septintas.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Mac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -39,5 +39,6 @@ targets:
         SWIFT_OBJC_BRIDGING_HEADER: Mac/Bridging-Header.h
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
-        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: Mac/septintas.entitlements
         ENABLE_APP_SANDBOX: NO
